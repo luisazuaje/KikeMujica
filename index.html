@@ -2,217 +2,298 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Harborias Academy · Horario</title>
-    
-    <!-- Tailwind con configuración básica -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MVP Calendario de Clases</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- FullCalendar -->
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-
+    <!-- FullCalendar CSS y JS (v5) -->
+    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/core@5.11.3/main.min.css' rel='stylesheet' />
+    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@5.11.3/main.min.css' rel='stylesheet' />
+    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@5.11.3/main.min.css' rel='stylesheet' />
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core@5.11.3/main.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@5.11.3/main.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@5.11.3/main.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@5.11.3/main.min.js'></script>
+    <!-- Fuente opcional -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Personalización fina para FullCalendar – buscamos un look limpio y mobile first */
-        #calendar {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 1.5rem;
-            padding: 1rem;
-            box-shadow: 0 20px 40px -15px rgba(0,0,0,0.15);
-        }
-        /* Ajustes de tipografía y espaciado para móvil */
-        .fc .fc-toolbar {
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-bottom: 1rem !important;
-        }
-        .fc .fc-toolbar-title {
-            font-size: 1.2rem !important;
-            font-weight: 700;
-            color: #1e293b;
-            text-transform: capitalize;
-            order: 2;
-            width: 100%;
-            text-align: center;
-            margin: 0.25rem 0;
-        }
-        .fc .fc-button-group, .fc .fc-button {
-            border-radius: 9999px !important;
-            font-weight: 500;
-            text-transform: capitalize;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            transition: all 0.15s ease;
-        }
-        .fc .fc-button-primary {
-            background-color: #4f46e5;
-            border-color: #4f46e5;
-        }
-        .fc .fc-button-primary:hover {
-            background-color: #6366f1;
-            border-color: #6366f1;
-            transform: translateY(-1px);
-        }
-        .fc .fc-button-primary:not(:disabled):active,
-        .fc .fc-button-primary:not(:disabled).fc-button-active {
-            background-color: #4338ca;
-            border-color: #4338ca;
-        }
-        /* Vista de celdas */
-        .fc .fc-daygrid-day-frame, .fc .fc-timegrid-slot {
-            background-color: #faf9fe;
-        }
-        .fc .fc-col-header-cell {
-            background-color: #f1f5f9;
-            color: #0f172a;
-            font-weight: 600;
-            padding: 8px 0;
-        }
-        .fc .fc-timegrid-axis {
-            background-color: #f8fafc;
-        }
-        .fc .fc-event {
-            border-radius: 12px !important;
-            padding: 3px 6px !important;
-            font-weight: 500;
-            font-size: 0.8rem;
-            border: none !important;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-            transition: transform 0.1s ease;
-        }
-        .fc .fc-event:hover {
-            transform: scale(1.01);
-        }
-        /* Mejora para móvil: texto más grande en eventos */
-        @media (max-width: 640px) {
-            #calendar {
-                padding: 0.75rem;
-                border-radius: 1rem;
-            }
-            .fc .fc-event {
-                font-size: 0.7rem;
-                padding: 2px 4px !important;
-            }
-            .fc .fc-toolbar-title {
-                font-size: 1rem !important;
-            }
-            .fc .fc-button {
-                padding: 0.3rem 0.6rem !important;
-                font-size: 0.75rem !important;
-            }
-        }
+        body { font-family: 'Inter', sans-serif; }
+        /* Ajustes para FullCalendar con Tailwind */
+        .fc .fc-toolbar-title { @apply text-xl font-semibold text-gray-800; }
+        .fc .fc-button-primary { @apply bg-blue-600 border-blue-600 hover:bg-blue-700 hover:border-blue-700; }
+        .fc .fc-col-header-cell-cushion { @apply text-gray-700 font-medium; }
+        .fc .fc-timegrid-slot-label { @apply text-gray-600; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-slate-50 to-indigo-50/30 min-h-screen font-sans antialiased">
-
-    <!-- Navbar elegante y funcional en móvil -->
-    <nav class="bg-white/80 backdrop-blur-md border-b border-indigo-100 sticky top-0 z-50 shadow-xs">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16 md:h-20">
-                <!-- Título principal -->
-                <div class="flex-1 min-w-0">
-                    <h1 class="text-xl md:text-2xl font-extrabold bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent truncate">
-                        Harborias Academy
-                        <span class="block text-xs md:text-sm font-medium text-indigo-500 tracking-wider mt-0.5">horario · gestión académica</span>
-                    </h1>
-                </div>
-                
-                <!-- Botón de acción principal (fácil de tocar) -->
-                <div class="ml-3 flex-shrink-0">
-                    <button class="inline-flex items-center justify-center px-4 py-2.5 md:px-5 md:py-3 text-sm md:text-base font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-xl hover:scale-105 transition-all duration-200 active:scale-95">
-                        <svg class="w-4 h-4 md:w-5 md:h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
-                        </svg>
-                        <span class="hidden xs:inline">Clase</span>
-                        <span class="inline xs:hidden">+</span>
-                    </button>
-                </div>
+<body class="bg-gray-50 p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Cabecera -->
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">📅 Calendario de Clases (MVP)</h1>
+            <div class="flex gap-3">
+                <button id="openModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow transition flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    Añadir clase
+                </button>
+                <button id="todayBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow transition">
+                    Hoy
+                </button>
             </div>
         </div>
-    </nav>
 
-    <!-- Contenedor principal con padding adecuado -->
-    <main class="max-w-7xl mx-auto px-3 sm:px-5 lg:px-8 py-6 md:py-10">
-        <div id="calendar"></div>
-        
-        <!-- Pequeña leyenda o ayuda (opcional, se ve bien) -->
-        <div class="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-500">
-            <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-400 mr-1"></span> Alemán</span>
-            <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-amber-400 mr-1"></span> Inglés</span>
-            <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-300 mr-1"></span> Japonés</span>
-            <span class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-300 mr-1"></span> Grupo</span>
+        <!-- Leyenda de profesores -->
+        <div class="flex flex-wrap gap-4 mb-4 text-sm">
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-blue-500 mr-2"></span> Prof. Ana (Matemáticas)</div>
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 mr-2"></span> Prof. Luis (Física)</div>
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-orange-500 mr-2"></span> Prof. Carla (Química)</div>
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-500 mr-2"></span> Prof. Marta (Historia)</div>
         </div>
-    </main>
+
+        <!-- Contenedor del calendario -->
+        <div id="calendar" class="bg-white p-4 rounded-xl shadow-lg"></div>
+    </div>
+
+    <!-- Modal para añadir clase (oculto por defecto) -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">➕ Nueva clase</h2>
+            <form id="addClassForm">
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-medium mb-2">Título de la clase</label>
+                    <input type="text" id="title" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Ej. Matemáticas avanzadas">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-medium mb-2">Profesor</label>
+                    <select id="professor" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="Ana">Prof. Ana (Matemáticas)</option>
+                        <option value="Luis">Prof. Luis (Física)</option>
+                        <option value="Carla">Prof. Carla (Química)</option>
+                        <option value="Marta">Prof. Marta (Historia)</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Día</label>
+                        <select id="day" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <option value="1">Lunes</option>
+                            <option value="2">Martes</option>
+                            <option value="3">Miércoles</option>
+                            <option value="4">Jueves</option>
+                            <option value="5">Viernes</option>
+                            <option value="6">Sábado</option>
+                            <option value="0">Domingo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Color</label>
+                        <select id="color" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <option value="blue">Azul</option>
+                            <option value="green">Verde</option>
+                            <option value="orange">Naranja</option>
+                            <option value="purple">Morado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Hora inicio</label>
+                        <input type="time" id="startTime" required value="09:00" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Hora fin</label>
+                        <input type="time" id="endTime" required value="10:30" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" id="closeModalBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Guardar clase</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const calendarEl = document.getElementById('calendar');
+        (function() {
+            // ----- Configuración de semana objetivo (próximo lunes) -----
+            function getNextMonday() {
+                const today = new Date();
+                const day = today.getDay(); // 0 domingo, 1 lunes...
+                const diff = (day === 0 ? 1 : 8 - day); // días hasta próximo lunes
+                const nextMonday = new Date(today);
+                nextMonday.setDate(today.getDate() + diff);
+                nextMonday.setHours(0,0,0,0);
+                return nextMonday;
+            }
+            const baseDate = getNextMonday(); // lunes de la semana que mostraremos
 
+            // Mapeo de días (0 domingo..6 sábado) a offset desde baseDate
+            function getDateForDay(dayIndex) {
+                const date = new Date(baseDate);
+                // dayIndex: 0 domingo, 1 lunes... 6 sábado
+                // Si dayIndex es 0 (domingo) y baseDate es lunes, sumamos 6
+                if (dayIndex === 0) { // domingo
+                    date.setDate(baseDate.getDate() + 6);
+                } else {
+                    date.setDate(baseDate.getDate() + (dayIndex - 1)); // lunes = 1 -> +0, martes 2 -> +1, etc.
+                }
+                return date;
+            }
+
+            // ----- Datos de ejemplo (eventos iniciales) -----
+            const initialEvents = [
+                { id: '1', title: 'Matemáticas - Ana', professor: 'Ana', day: 1, startTime: '10:00', endTime: '11:30', color: 'blue' },
+                { id: '2', title: 'Física - Luis', professor: 'Luis', day: 2, startTime: '14:00', endTime: '15:30', color: 'green' },
+                { id: '3', title: 'Química - Carla', professor: 'Carla', day: 3, startTime: '08:00', endTime: '09:30', color: 'orange' },
+                { id: '4', title: 'Historia - Marta', professor: 'Marta', day: 4, startTime: '16:00', endTime: '17:30', color: 'purple' },
+                { id: '5', title: 'Matemáticas - Ana', professor: 'Ana', day: 5, startTime: '12:00', endTime: '13:30', color: 'blue' },
+            ];
+
+            // Convertir eventos iniciales a objetos con start/end Date
+            function buildEventsFromArray(arr) {
+                return arr.map(e => {
+                    const date = getDateForDay(e.day);
+                    const [startH, startM] = e.startTime.split(':');
+                    const [endH, endM] = e.endTime.split(':');
+                    const start = new Date(date);
+                    start.setHours(parseInt(startH), parseInt(startM), 0);
+                    const end = new Date(date);
+                    end.setHours(parseInt(endH), parseInt(endM), 0);
+                    return {
+                        id: e.id,
+                        title: e.title,
+                        start: start,
+                        end: end,
+                        backgroundColor: e.color === 'blue' ? '#3b82f6' : e.color === 'green' ? '#22c55e' : e.color === 'orange' ? '#f97316' : '#a855f7',
+                        borderColor: 'white',
+                        textColor: 'white',
+                        extendedProps: { professor: e.professor }
+                    };
+                });
+            }
+
+            let events = buildEventsFromArray(initialEvents);
+
+            // ----- Inicializar FullCalendar -----
+            const calendarEl = document.getElementById('calendar');
             const calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'timeGridWeek',
-                locale: 'es',
-                firstDay: 1, // lunes
-                slotMinTime: '07:00:00',
-                slotMaxTime: '21:00:00',
-                allDaySlot: false,
-                height: 'auto', // se adapta mejor en móvil
-                expandRows: true,
+                initialDate: baseDate,
                 headerToolbar: {
-                    left: 'prev,next today',
+                    left: 'prev,next',
                     center: 'title',
                     right: 'timeGridWeek,timeGridDay'
                 },
+                slotMinTime: '07:00:00',
+                slotMaxTime: '21:00:00',
+                allDaySlot: false,
+                height: 'auto',
+                locale: 'es',
                 buttonText: {
                     today: 'Hoy',
                     week: 'Semana',
                     day: 'Día'
                 },
-                events: [
-                    {
-                        title: 'Alemán · Maria F.',
-                        startTime: '10:00:00',
-                        endTime: '12:00:00',
-                        daysOfWeek: [3, 4],
-                        backgroundColor: '#f87171',
-                        borderColor: '#f87171'
-                    },
-                    {
-                        title: 'Inglés · Andrea 11',
-                        startTime: '11:00:00',
-                        endTime: '12:30:00',
-                        daysOfWeek: [3, 4],
-                        backgroundColor: '#fbbf24',
-                        borderColor: '#fbbf24'
-                    },
-                    {
-                        title: 'Japonés · Miguel',
-                        startTime: '10:30:00',
-                        endTime: '12:30:00',
-                        daysOfWeek: [2, 6],
-                        backgroundColor: '#fca5a5',
-                        borderColor: '#fca5a5'
-                    },
-                    {
-                        title: 'Grupo · Diego',
-                        startTime: '18:30:00',
-                        endTime: '20:00:00',
-                        daysOfWeek: [1, 3, 5],
-                        backgroundColor: '#86efac',
-                        borderColor: '#86efac',
-                        textColor: '#166534'
-                    }
-                ],
+                events: events,
                 eventClick: function(info) {
-                    // Pequeño detalle: alerta más amigable
-                    const partes = info.event.title.split('·');
-                    const clase = partes[0].trim();
-                    const profesor = partes[1] ? partes[1].trim() : 'No especificado';
-                    alert(`📘 ${clase}\n👩‍🏫 Profesor: ${profesor}`);
+                    if (confirm('¿Eliminar esta clase?')) {
+                        // Eliminar del array y refrescar
+                        events = events.filter(e => e.id !== info.event.id);
+                        calendar.removeAllEvents();
+                        calendar.addEventSource(events);
+                    }
+                },
+                eventDidMount: function(info) {
+                    // Añadir tooltip con profesor
+                    info.el.setAttribute('title', `Prof. ${info.event.extendedProps.professor}`);
                 }
             });
 
             calendar.render();
-        });
+
+            // ----- Lógica del modal -----
+            const modal = document.getElementById('modal');
+            const openModalBtn = document.getElementById('openModalBtn');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const form = document.getElementById('addClassForm');
+            const todayBtn = document.getElementById('todayBtn');
+
+            openModalBtn.addEventListener('click', () => {
+                modal.classList.remove('hidden');
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+
+            // Cerrar modal si se hace clic fuera del contenido (opcional)
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+
+            // Botón "Hoy" vuelve a la semana actual
+            todayBtn.addEventListener('click', () => {
+                const today = new Date();
+                calendar.gotoDate(today);
+            });
+
+            // Manejar envío del formulario
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const title = document.getElementById('title').value;
+                const professor = document.getElementById('professor').value;
+                const day = parseInt(document.getElementById('day').value);
+                const color = document.getElementById('color').value;
+                const startTime = document.getElementById('startTime').value;
+                const endTime = document.getElementById('endTime').value;
+
+                // Validar hora inicio < fin
+                if (startTime >= endTime) {
+                    alert('La hora de fin debe ser posterior a la de inicio');
+                    return;
+                }
+
+                // Generar ID único
+                const newId = Date.now().toString();
+
+                // Crear evento en el array interno
+                const date = getDateForDay(day);
+                const [startH, startM] = startTime.split(':');
+                const [endH, endM] = endTime.split(':');
+                const start = new Date(date);
+                start.setHours(parseInt(startH), parseInt(startM), 0);
+                const end = new Date(date);
+                end.setHours(parseInt(endH), parseInt(endM), 0);
+
+                const newEvent = {
+                    id: newId,
+                    title: `${title} - ${professor}`,
+                    start: start,
+                    end: end,
+                    backgroundColor: color === 'blue' ? '#3b82f6' : color === 'green' ? '#22c55e' : color === 'orange' ? '#f97316' : '#a855f7',
+                    borderColor: 'white',
+                    textColor: 'white',
+                    extendedProps: { professor: professor }
+                };
+
+                // Añadir al array y refrescar calendario
+                events.push(newEvent);
+                calendar.addEvent(newEvent);
+
+                // Resetear formulario y cerrar modal
+                form.reset();
+                // Valores por defecto para comodidad
+                document.getElementById('startTime').value = '09:00';
+                document.getElementById('endTime').value = '10:30';
+                modal.classList.add('hidden');
+            });
+
+            // Pequeño ajuste: forzar recalculo de eventos si cambia baseDate (no debería)
+            // Exponer útil para depuración
+            window.calendar = calendar;
+        })();
     </script>
 </body>
 </html>

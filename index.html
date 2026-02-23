@@ -6,10 +6,11 @@
     <title>MVP Calendario de Clases</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FullCalendar CSS y JS (v5) -->
+    <!-- FullCalendar CSS (v5) -->
     <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/core@5.11.3/main.min.css' rel='stylesheet' />
     <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@5.11.3/main.min.css' rel='stylesheet' />
     <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@5.11.3/main.min.css' rel='stylesheet' />
+    <!-- FullCalendar JS (v5) -->
     <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core@5.11.3/main.min.js'></script>
     <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@5.11.3/main.min.js'></script>
     <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@5.11.3/main.min.js'></script>
@@ -18,16 +19,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        /* Ajustes para FullCalendar con Tailwind */
-        .fc .fc-toolbar-title { @apply text-xl font-semibold text-gray-800; }
-        .fc .fc-button-primary { @apply bg-blue-600 border-blue-600 hover:bg-blue-700 hover:border-blue-700; }
-        .fc .fc-col-header-cell-cushion { @apply text-gray-700 font-medium; }
-        .fc .fc-timegrid-slot-label { @apply text-gray-600; }
+        /* Ajustes personalizados para FullCalendar */
+        .fc .fc-toolbar-title { font-size: 1.25rem; font-weight: 600; color: #1f2937; }
+        .fc .fc-button-primary { background-color: #2563eb; border-color: #2563eb; }
+        .fc .fc-button-primary:hover { background-color: #1d4ed8; border-color: #1d4ed8; }
+        .fc .fc-col-header-cell-cushion { color: #374151; font-weight: 500; }
+        .fc .fc-timegrid-slot-label { color: #4b5563; }
     </style>
 </head>
 <body class="bg-gray-50 p-6">
     <div class="max-w-7xl mx-auto">
-        <!-- Cabecera -->
+        <!-- Cabecera con botón añadir y hoy -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
             <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">📅 Calendario de Clases (MVP)</h1>
             <div class="flex gap-3">
@@ -41,7 +43,7 @@
             </div>
         </div>
 
-        <!-- Leyenda de profesores -->
+        <!-- Leyenda de profesores (colores) -->
         <div class="flex flex-wrap gap-4 mb-4 text-sm">
             <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-blue-500 mr-2"></span> Prof. Ana (Matemáticas)</div>
             <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 mr-2"></span> Prof. Luis (Física)</div>
@@ -53,11 +55,14 @@
         <div id="calendar" class="bg-white p-4 rounded-xl shadow-lg"></div>
     </div>
 
-    <!-- Modal para añadir clase (oculto por defecto) -->
+    <!-- Modal para añadir/editar clase (reutilizable) -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 mx-4">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">➕ Nueva clase</h2>
-            <form id="addClassForm">
+            <h2 id="modalTitle" class="text-2xl font-bold text-gray-800 mb-4">➕ Nueva clase</h2>
+            <form id="classForm">
+                <!-- Campo oculto para el ID del evento (cuando se edita) -->
+                <input type="hidden" id="eventId" value="">
+                
                 <div class="mb-4">
                     <label class="block text-gray-700 font-medium mb-2">Título de la clase</label>
                     <input type="text" id="title" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Ej. Matemáticas avanzadas">
@@ -104,9 +109,14 @@
                         <input type="time" id="endTime" required value="10:30" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                     </div>
                 </div>
-                <div class="flex justify-end gap-3">
-                    <button type="button" id="closeModalBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Guardar clase</button>
+                <div class="flex justify-between gap-3">
+                    <div>
+                        <button type="button" id="deleteEventBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition hidden">Eliminar</button>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" id="closeModalBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition">Cancelar</button>
+                        <button type="submit" id="saveEventBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Guardar</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -114,27 +124,25 @@
 
     <script>
         (function() {
-            // ----- Configuración de semana objetivo (próximo lunes) -----
-            function getNextMonday() {
+            // ----- Configuración de semana actual (lunes como inicio) -----
+            function getStartOfWeek() {
                 const today = new Date();
                 const day = today.getDay(); // 0 domingo, 1 lunes...
-                const diff = (day === 0 ? 1 : 8 - day); // días hasta próximo lunes
-                const nextMonday = new Date(today);
-                nextMonday.setDate(today.getDate() + diff);
-                nextMonday.setHours(0,0,0,0);
-                return nextMonday;
+                const diff = day === 0 ? -6 : 1 - day; // Ajuste para que la semana empiece en lunes
+                const monday = new Date(today);
+                monday.setDate(today.getDate() + diff);
+                monday.setHours(0,0,0,0);
+                return monday;
             }
-            const baseDate = getNextMonday(); // lunes de la semana que mostraremos
+            const baseDate = getStartOfWeek(); // lunes de la semana actual
 
             // Mapeo de días (0 domingo..6 sábado) a offset desde baseDate
             function getDateForDay(dayIndex) {
                 const date = new Date(baseDate);
-                // dayIndex: 0 domingo, 1 lunes... 6 sábado
-                // Si dayIndex es 0 (domingo) y baseDate es lunes, sumamos 6
                 if (dayIndex === 0) { // domingo
                     date.setDate(baseDate.getDate() + 6);
                 } else {
-                    date.setDate(baseDate.getDate() + (dayIndex - 1)); // lunes = 1 -> +0, martes 2 -> +1, etc.
+                    date.setDate(baseDate.getDate() + (dayIndex - 1));
                 }
                 return date;
             }
@@ -166,22 +174,29 @@
                         backgroundColor: e.color === 'blue' ? '#3b82f6' : e.color === 'green' ? '#22c55e' : e.color === 'orange' ? '#f97316' : '#a855f7',
                         borderColor: 'white',
                         textColor: 'white',
-                        extendedProps: { professor: e.professor }
+                        extendedProps: { 
+                            professor: e.professor,
+                            day: e.day,
+                            startTime: e.startTime,
+                            endTime: e.endTime,
+                            color: e.color
+                        }
                     };
                 });
             }
 
             let events = buildEventsFromArray(initialEvents);
 
-            // ----- Inicializar FullCalendar -----
+            // ----- Inicializar FullCalendar con plugins -----
             const calendarEl = document.getElementById('calendar');
             const calendar = new FullCalendar.Calendar(calendarEl, {
+                plugins: [ FullCalendar.DayGrid, FullCalendar.TimeGrid, FullCalendar.Interaction ],
                 initialView: 'timeGridWeek',
                 initialDate: baseDate,
                 headerToolbar: {
-                    left: 'prev,next',
+                    left: 'prev,next today',
                     center: 'title',
-                    right: 'timeGridWeek,timeGridDay'
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
                 },
                 slotMinTime: '07:00:00',
                 slotMaxTime: '21:00:00',
@@ -190,75 +205,100 @@
                 locale: 'es',
                 buttonText: {
                     today: 'Hoy',
+                    month: 'Mes',
                     week: 'Semana',
                     day: 'Día'
                 },
                 events: events,
                 eventClick: function(info) {
-                    if (confirm('¿Eliminar esta clase?')) {
-                        // Eliminar del array y refrescar
-                        events = events.filter(e => e.id !== info.event.id);
-                        calendar.removeAllEvents();
-                        calendar.addEventSource(events);
-                    }
-                },
-                eventDidMount: function(info) {
-                    // Añadir tooltip con profesor
-                    info.el.setAttribute('title', `Prof. ${info.event.extendedProps.professor}`);
+                    // Abrir modal en modo edición con los datos del evento
+                    openEditModal(info.event);
                 }
             });
 
             calendar.render();
 
-            // ----- Lógica del modal -----
+            // ----- Referencias al modal y formulario -----
             const modal = document.getElementById('modal');
-            const openModalBtn = document.getElementById('openModalBtn');
+            const modalTitle = document.getElementById('modalTitle');
+            const classForm = document.getElementById('classForm');
+            const eventIdInput = document.getElementById('eventId');
+            const titleInput = document.getElementById('title');
+            const professorSelect = document.getElementById('professor');
+            const daySelect = document.getElementById('day');
+            const colorSelect = document.getElementById('color');
+            const startTimeInput = document.getElementById('startTime');
+            const endTimeInput = document.getElementById('endTime');
+            const deleteBtn = document.getElementById('deleteEventBtn');
             const closeModalBtn = document.getElementById('closeModalBtn');
-            const form = document.getElementById('addClassForm');
+            const openModalBtn = document.getElementById('openModalBtn');
             const todayBtn = document.getElementById('todayBtn');
 
-            openModalBtn.addEventListener('click', () => {
+            // Abrir modal para nuevo evento
+            function openNewModal() {
+                modalTitle.innerText = '➕ Nueva clase';
+                eventIdInput.value = '';
+                classForm.reset();
+                startTimeInput.value = '09:00';
+                endTimeInput.value = '10:30';
+                deleteBtn.classList.add('hidden');
                 modal.classList.remove('hidden');
-            });
+            }
 
-            closeModalBtn.addEventListener('click', () => {
+            // Abrir modal para editar evento
+            function openEditModal(event) {
+                modalTitle.innerText = '✏️ Editar clase';
+                eventIdInput.value = event.id;
+                
+                // Rellenar campos con los datos del evento
+                titleInput.value = event.title.replace(` - ${event.extendedProps.professor}`, ''); // Quitamos el profesor del título si está
+                professorSelect.value = event.extendedProps.professor;
+                daySelect.value = event.extendedProps.day;
+                colorSelect.value = event.extendedProps.color;
+                startTimeInput.value = event.extendedProps.startTime;
+                endTimeInput.value = event.extendedProps.endTime;
+                
+                deleteBtn.classList.remove('hidden');
+                modal.classList.remove('hidden');
+            }
+
+            // Cerrar modal
+            function closeModal() {
                 modal.classList.add('hidden');
-            });
+            }
 
-            // Cerrar modal si se hace clic fuera del contenido (opcional)
+            openModalBtn.addEventListener('click', openNewModal);
+            closeModalBtn.addEventListener('click', closeModal);
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.add('hidden');
-                }
+                if (e.target === modal) closeModal();
             });
 
-            // Botón "Hoy" vuelve a la semana actual
+            // Botón Hoy externo
             todayBtn.addEventListener('click', () => {
-                const today = new Date();
-                calendar.gotoDate(today);
+                calendar.today();
             });
 
-            // Manejar envío del formulario
-            form.addEventListener('submit', (e) => {
+            // Guardar (crear o actualizar)
+            classForm.addEventListener('submit', (e) => {
                 e.preventDefault();
 
-                const title = document.getElementById('title').value;
-                const professor = document.getElementById('professor').value;
-                const day = parseInt(document.getElementById('day').value);
-                const color = document.getElementById('color').value;
-                const startTime = document.getElementById('startTime').value;
-                const endTime = document.getElementById('endTime').value;
+                const id = eventIdInput.value;
+                const title = titleInput.value;
+                const professor = professorSelect.value;
+                const day = parseInt(daySelect.value);
+                const color = colorSelect.value;
+                const startTime = startTimeInput.value;
+                const endTime = endTimeInput.value;
 
-                // Validar hora inicio < fin
                 if (startTime >= endTime) {
                     alert('La hora de fin debe ser posterior a la de inicio');
                     return;
                 }
 
-                // Generar ID único
-                const newId = Date.now().toString();
+                // Generar ID si es nuevo
+                const eventId = id || Date.now().toString();
 
-                // Crear evento en el array interno
+                // Crear objeto de evento para FullCalendar
                 const date = getDateForDay(day);
                 const [startH, startM] = startTime.split(':');
                 const [endH, endM] = endTime.split(':');
@@ -267,31 +307,56 @@
                 const end = new Date(date);
                 end.setHours(parseInt(endH), parseInt(endM), 0);
 
+                const fullTitle = `${title} - ${professor}`;
+                const bgColor = color === 'blue' ? '#3b82f6' : color === 'green' ? '#22c55e' : color === 'orange' ? '#f97316' : '#a855f7';
+
                 const newEvent = {
-                    id: newId,
-                    title: `${title} - ${professor}`,
+                    id: eventId,
+                    title: fullTitle,
                     start: start,
                     end: end,
-                    backgroundColor: color === 'blue' ? '#3b82f6' : color === 'green' ? '#22c55e' : color === 'orange' ? '#f97316' : '#a855f7',
+                    backgroundColor: bgColor,
                     borderColor: 'white',
                     textColor: 'white',
-                    extendedProps: { professor: professor }
+                    extendedProps: {
+                        professor: professor,
+                        day: day,
+                        startTime: startTime,
+                        endTime: endTime,
+                        color: color
+                    }
                 };
 
-                // Añadir al array y refrescar calendario
-                events.push(newEvent);
-                calendar.addEvent(newEvent);
+                if (id) {
+                    // Actualizar: eliminar el anterior y agregar el nuevo
+                    const oldEvent = calendar.getEventById(id);
+                    if (oldEvent) oldEvent.remove();
+                    calendar.addEvent(newEvent);
+                    
+                    // Actualizar también en el array events (para mantener consistencia)
+                    events = events.filter(ev => ev.id !== id);
+                    events.push(newEvent);
+                } else {
+                    // Crear nuevo
+                    calendar.addEvent(newEvent);
+                    events.push(newEvent);
+                }
 
-                // Resetear formulario y cerrar modal
-                form.reset();
-                // Valores por defecto para comodidad
-                document.getElementById('startTime').value = '09:00';
-                document.getElementById('endTime').value = '10:30';
-                modal.classList.add('hidden');
+                closeModal();
             });
 
-            // Pequeño ajuste: forzar recalculo de eventos si cambia baseDate (no debería)
-            // Exponer útil para depuración
+            // Eliminar evento
+            deleteBtn.addEventListener('click', () => {
+                const id = eventIdInput.value;
+                if (id && confirm('¿Eliminar esta clase?')) {
+                    const event = calendar.getEventById(id);
+                    if (event) event.remove();
+                    events = events.filter(ev => ev.id !== id);
+                    closeModal();
+                }
+            });
+
+            // Exponer objeto para depuración
             window.calendar = calendar;
         })();
     </script>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control de Deudas · Luis Azuaje (broma)</title>
+  <title>Control de Deudas · local storage + tickets</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
@@ -15,15 +15,22 @@
     .tsj-link { font-size: 0.9rem; margin-left: 5px; }
     .footer { border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9rem; }
     .password-small { font-size: 0.8rem; color: #dc3545; }
+    /* Estilos para el ticket dentro del modal de impresión */
+    @media print {
+      body * { visibility: hidden; }
+      .modal-ticket, .modal-ticket * { visibility: visible; }
+      .modal-ticket { position: absolute; left: 0; top: 0; width: 100%; background: white; padding: 20px; }
+      .no-print { display: none; }
+    }
   </style>
 </head>
 <body class="p-3">
 
 <div class="container-lg">
-  <!-- Cabecera ligera -->
+  <!-- Cabecera -->
   <header class="my-3 text-center">
-    <h1 class="display-6">💰 Control de deudas <span class="text-muted">(broma privada)</span></h1>
-    <p class="lead small">Los datos viven en Firestore · cambios en tiempo real</p>
+    <h1 class="display-6">💰 Control de deudas <span class="text-muted">(sin Firebase)</span></h1>
+    <p class="lead small">Los datos se guardan en localStorage · persistencia local</p>
   </header>
 
   <!-- SECCIÓN 1: TARJETAS DE RESUMEN -->
@@ -62,7 +69,7 @@
     </div>
   </section>
 
-  <!-- SECCIÓN 2: TABLA DE DEUDAS -->
+  <!-- SECCIÓN 2: TABLA DE DEUDAS (con nuevo botón TICKET) -->
   <section class="mb-4">
     <div class="d-flex justify-content-between align-items-center mb-2">
       <h5>📋 Detalle de deudas</h5>
@@ -122,7 +129,7 @@
   </footer>
 </div>
 
-<!-- MODALES (3) para acciones protegidas -->
+<!-- MODALES (3 para acciones + 1 para ticket) -->
 
 <!-- Modal EDITAR -->
 <div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
@@ -217,29 +224,34 @@
   </div>
 </div>
 
-<!-- FIREBASE (compat) y BOOTSTRAP JS -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore-compat.js"></script>
+<!-- Modal TICKET (para visualizar e imprimir) -->
+<div class="modal fade" id="modalTicket" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-ticket">
+    <div class="modal-content">
+      <div class="modal-header no-print">
+        <h5 class="modal-title">🧾 Ticket de deuda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="ticketContent">
+        <!-- contenido dinámico cargado por JS -->
+      </div>
+      <div class="modal-footer no-print">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button class="btn btn-primary" id="imprimirTicket">🖨️ Imprimir ticket</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 (function() {
-  // --- CONFIGURACIÓN FIREBASE (proporcionada) ---
-  const firebaseConfig = {
-    apiKey: "AIzaSyDafm0dGv_WQ0nuco9IqQJtdX9bn972gdg",
-    authDomain: "luis-azuaje.firebaseapp.com",
-    projectId: "luis-azuaje",
-    storageBucket: "luis-azuaje.firebasestorage.app",
-    messagingSenderId: "763595536872",
-    appId: "1:763595536872:web:841a92cbd3a9828cfccc5d",
-    measurementId: "G-2407EEFRR6"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const deudasCol = db.collection('deudas');
-  const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
+  // --- Clave secreta ---
+  const CLAVE = "Velocidad*20C";
 
-  // --- variables globales y elementos del DOM ---
+  // --- Elementos DOM frecuentes ---
   const tablaBody = document.getElementById('tablaDeudasBody');
   const totalSpan = document.getElementById('totalDeudas');
   const promedioSpan = document.getElementById('promedio');
@@ -247,35 +259,59 @@
   const minimoSpan = document.getElementById('minimo');
   const contadorTabla = document.getElementById('contadorTabla');
 
-  // datos actuales en memoria (para cálculos y edición)
-  let deudasActuales = []; // { id, ... }
+  // --- Almacén en memoria (array de deudas) ---
+  let deudas = [];
 
-  // --- actualizar resumen y tabla a partir de un snapshot de Firestore ---
-  function actualizarTodo(snapshot) {
-    const docs = snapshot.docs.map(doc => {
-      const data = doc.data();
-      // Convertir fecha si existe (timestamp)
-      let fecha = data.fecha ? data.fecha.toDate() : new Date();
-      return {
-        id: doc.id,
-        ...data,
-        fechaObj: fecha,
-        fechaStr: fecha.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })
-      };
-    });
-    deudasActuales = docs;
+  // --- Clave para localStorage ---
+  const STORAGE_KEY = 'deudas_app';
+
+  // --- Cargar datos iniciales ---
+  function cargarDeudas() {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        deudas = JSON.parse(stored);
+        // Asegurar que cada deuda tenga fecha como string (si no, asignar ahora)
+        deudas = deudas.map(d => {
+          if (!d.fecha) d.fecha = new Date().toISOString();
+          return d;
+        });
+      } catch (e) {
+        deudas = [];
+      }
+    } else {
+      deudas = [];
+    }
+    // Ordenar por fecha descendente (más reciente primero)
+    deudas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  }
+
+  // --- Guardar en localStorage y renderizar ---
+  function guardarYRenderizar() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deudas));
+    renderizarTodo();
+  }
+
+  // --- Renderizar tabla y resumen ---
+  function renderizarTodo() {
+    // Ordenar antes de mostrar
+    deudas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
     // 1. Renderizar tabla
-    if (docs.length === 0) {
+    if (deudas.length === 0) {
       tablaBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No hay deudas registradas</td></tr>`;
       contadorTabla.innerText = '0 registros';
     } else {
       let html = '';
-      docs.forEach(d => {
+      deudas.forEach(d => {
         const pagadaClass = d.pagada ? 'pagada' : '';
         const montoFormato = '$' + (d.monto || 0).toFixed(2);
         const idCorto = d.id.substring(0, 5) + '…';
-        // botones: siempre editar y eliminar; pagar solo si no está pagada
+        // Fecha formateada
+        const fecha = new Date(d.fecha);
+        const fechaStr = fecha.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' });
+
+        // Botones: editar, eliminar, ticket, y pagar/badge
         const botonPagar = d.pagada ? 
           '<span class="badge badge-pagada">Pagada</span>' : 
           `<button class="btn btn-sm btn-outline-success btn-pagar" data-id="${d.id}">Pagar</button>`;
@@ -286,22 +322,23 @@
           <td>${escapeHTML(d.cedula || '')}</td>
           <td>${montoFormato}</td>
           <td>${escapeHTML(d.descripcion || '')}</td>
-          <td>${d.fechaStr}</td>
+          <td>${fechaStr}</td>
           <td><small class="text-muted" title="${d.id}">${idCorto}</small></td>
           <td>
             <button class="btn btn-sm btn-warning btn-editar" data-id="${d.id}">Editar</button>
             <button class="btn btn-sm btn-danger btn-eliminar" data-id="${d.id}">Eliminar</button>
+            <button class="btn btn-sm btn-info btn-ticket" data-id="${d.id}">Ticket</button>
             ${botonPagar}
           </td>
         </tr>`;
       });
       tablaBody.innerHTML = html;
-      contadorTabla.innerText = docs.length + ' registros';
+      contadorTabla.innerText = deudas.length + ' registros';
     }
 
-    // 2. Calcular resumen (solo montos, ignorar pagadas? No, incluye todas según especificación)
-    const montos = docs.map(d => d.monto || 0);
-    const total = docs.length;
+    // 2. Calcular resumen (todos los montos)
+    const montos = deudas.map(d => d.monto || 0);
+    const total = deudas.length;
     const suma = montos.reduce((a,b) => a + b, 0);
     const promedio = total ? suma / total : 0;
     const maximo = total ? Math.max(...montos) : 0;
@@ -313,7 +350,7 @@
     minimoSpan.innerText = '$' + minimo.toFixed(2);
   }
 
-  // pequeño helper para evitar XSS básico
+  // Helper escape
   function escapeHTML(str) {
     if (!str) return '';
     return String(str).replace(/[&<>"]/g, function(m) {
@@ -325,13 +362,16 @@
     });
   }
 
-  // --- LISTENER EN TIEMPO REAL ---
-  deudasCol.orderBy('fecha', 'desc').onSnapshot(actualizarTodo, error => {
-    console.error('Error en snapshot:', error);
-    tablaBody.innerHTML = `<tr><td colspan="8" class="text-danger">Error de conexión con Firebase</td></tr>`;
-  });
+  // --- Generar ID único simple ---
+  function generarId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  }
 
-  // --- FORMULARIO NUEVA DEUDA ---
+  // --- Inicializar ---
+  cargarDeudas();
+  renderizarTodo();
+
+  // --- Formulario nueva deuda ---
   document.getElementById('formNuevaDeuda').addEventListener('submit', e => {
     e.preventDefault();
     const emisor = document.getElementById('emisor').value.trim();
@@ -342,42 +382,41 @@
 
     if (!emisor || !receptor || isNaN(monto) || !descripcion) return;
 
-    deudasCol.add({
+    const nueva = {
+      id: generarId(),
       emisor,
       receptor,
       cedula: cedula || '',
       monto,
       descripcion,
-      fecha: serverTimestamp(),
+      fecha: new Date().toISOString(),
       pagada: false
-    })
-    .then(() => {
-      // limpiar formulario
-      document.getElementById('formNuevaDeuda').reset();
-    })
-    .catch(err => alert('Error al guardar: ' + err.message));
+    };
+
+    deudas.push(nueva);
+    guardarYRenderizar();
+    e.target.reset();
   });
 
-  // --- DELEGACIÓN DE EVENTOS PARA BOTONES DE TABLA (editar, eliminar, pagar) ---
+  // --- Delegación de eventos para botones de tabla ---
   document.addEventListener('click', function(e) {
     const target = e.target;
+
     // Editar
     if (target.classList.contains('btn-editar')) {
       const id = target.getAttribute('data-id');
-      const deuda = deudasActuales.find(d => d.id === id);
+      const deuda = deudas.find(d => d.id === id);
       if (!deuda) return;
 
-      // llenar modal editar
       document.getElementById('editDocId').value = deuda.id;
       document.getElementById('editEmisor').value = deuda.emisor || '';
       document.getElementById('editReceptor').value = deuda.receptor || '';
       document.getElementById('editCedula').value = deuda.cedula || '';
       document.getElementById('editMonto').value = deuda.monto || 0;
       document.getElementById('editDescripcion').value = deuda.descripcion || '';
-      document.getElementById('editPassword').value = ''; // limpiar
+      document.getElementById('editPassword').value = '';
       document.getElementById('editError').innerText = '';
 
-      // mostrar modal
       new bootstrap.Modal(document.getElementById('modalEditar')).show();
     }
     // Eliminar
@@ -396,12 +435,40 @@
       document.getElementById('payError').innerText = '';
       new bootstrap.Modal(document.getElementById('modalPagar')).show();
     }
+    // Ticket
+    else if (target.classList.contains('btn-ticket')) {
+      const id = target.getAttribute('data-id');
+      const deuda = deudas.find(d => d.id === id);
+      if (!deuda) return;
+
+      // Formatear contenido del ticket
+      const fecha = new Date(deuda.fecha).toLocaleString('es-VE');
+      const pagadaTexto = deuda.pagada ? '✅ PAGADA' : '⏳ PENDIENTE';
+      const ticketHTML = `
+        <div style="font-family: monospace; padding: 10px;">
+          <h4 class="text-center">🧾 TICKET DE DEUDA</h4>
+          <hr>
+          <p><strong>ID:</strong> ${deuda.id}</p>
+          <p><strong>Emisor:</strong> ${escapeHTML(deuda.emisor)}</p>
+          <p><strong>Receptor:</strong> ${escapeHTML(deuda.receptor)}</p>
+          <p><strong>Cédula:</strong> ${escapeHTML(deuda.cedula) || '—'}</p>
+          <p><strong>Monto:</strong> $${deuda.monto.toFixed(2)}</p>
+          <p><strong>Descripción:</strong> ${escapeHTML(deuda.descripcion)}</p>
+          <p><strong>Fecha:</strong> ${fecha}</p>
+          <p><strong>Estado:</strong> ${pagadaTexto}</p>
+          <hr>
+          <p class="text-muted">App de broma - Luis Azuaje</p>
+        </div>
+      `;
+      document.getElementById('ticketContent').innerHTML = ticketHTML;
+      new bootstrap.Modal(document.getElementById('modalTicket')).show();
+    }
   });
 
-  // --- CONFIRMAR EDITAR ---
+  // --- Confirmar Editar ---
   document.getElementById('confirmarEditar').addEventListener('click', function() {
     const clave = document.getElementById('editPassword').value;
-    if (clave !== 'Velocidad*20C') {
+    if (clave !== CLAVE) {
       document.getElementById('editError').innerText = '❌ Clave incorrecta. Contacta a Luis Azuaje.';
       return;
     }
@@ -417,49 +484,51 @@
       return;
     }
 
-    deudasCol.doc(id).update({
-      emisor, receptor, cedula, monto, descripcion
-    })
-    .then(() => {
-      bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
-    })
-    .catch(err => alert('Error al actualizar: ' + err.message));
+    const index = deudas.findIndex(d => d.id === id);
+    if (index !== -1) {
+      deudas[index] = { ...deudas[index], emisor, receptor, cedula, monto, descripcion };
+      guardarYRenderizar();
+    }
+    bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
   });
 
-  // --- CONFIRMAR ELIMINAR ---
+  // --- Confirmar Eliminar ---
   document.getElementById('confirmarEliminar').addEventListener('click', function() {
     const clave = document.getElementById('deletePassword').value;
-    if (clave !== 'Velocidad*20C') {
+    if (clave !== CLAVE) {
       document.getElementById('deleteError').innerText = '❌ Clave incorrecta. Operación denegada.';
       return;
     }
     const id = document.getElementById('deleteDocId').value;
-    deudasCol.doc(id).delete()
-      .then(() => {
-        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
-      })
-      .catch(err => alert('Error al eliminar: ' + err.message));
+    deudas = deudas.filter(d => d.id !== id);
+    guardarYRenderizar();
+    bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
   });
 
-  // --- CONFIRMAR PAGAR ---
+  // --- Confirmar Pagar ---
   document.getElementById('confirmarPagar').addEventListener('click', function() {
     const clave = document.getElementById('payPassword').value;
-    if (clave !== 'Velocidad*20C') {
+    if (clave !== CLAVE) {
       document.getElementById('payError').innerText = '❌ Clave incorrecta. No seas tramposo.';
       return;
     }
     const id = document.getElementById('payDocId').value;
-    deudasCol.doc(id).update({ pagada: true })
-      .then(() => {
-        bootstrap.Modal.getInstance(document.getElementById('modalPagar')).hide();
-      })
-      .catch(err => alert('Error al marcar pagada: ' + err.message));
+    const index = deudas.findIndex(d => d.id === id);
+    if (index !== -1) {
+      deudas[index].pagada = true;
+      guardarYRenderizar();
+    }
+    bootstrap.Modal.getInstance(document.getElementById('modalPagar')).hide();
   });
 
-  // Cerrar modales y limpiar errores al esconderlos (opcional)
+  // --- Imprimir ticket desde el modal ---
+  document.getElementById('imprimirTicket').addEventListener('click', function() {
+    window.print();
+  });
+
+  // --- Limpiar errores al cerrar modales ---
   ['modalEditar', 'modalEliminar', 'modalPagar'].forEach(id => {
     document.getElementById(id).addEventListener('hidden.bs.modal', function() {
-      // limpia errores al cerrar
       const errorDiv = this.querySelector('.password-small');
       if (errorDiv) errorDiv.innerText = '';
     });
@@ -468,6 +537,6 @@
 })();
 </script>
 
-<!-- pequeño extra para que el enlace TSJ se vea bien -->
+<!-- Pequeño ajuste para que el modal de ticket sea visible al imprimir -->
 </body>
 </html>

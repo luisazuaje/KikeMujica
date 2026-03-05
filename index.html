@@ -3,540 +3,401 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control de Deudas · local storage + tickets</title>
+  <title>Control de Deudas</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { background-color: #f8f9fa; }
-    .card-resumen { transition: transform 0.1s ease; }
-    .card-resumen:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-    .badge-pagada { background-color: #28a745; color: white; font-size: 0.8rem; }
-    .table tbody tr.pagada td { text-decoration: line-through; background-color: #f1f1f1; color: #6c757d; }
-    .tsj-link { font-size: 0.9rem; margin-left: 5px; }
-    .footer { border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9rem; }
-    .password-small { font-size: 0.8rem; color: #dc3545; }
-    /* Estilos para el ticket dentro del modal de impresión */
+    body { background-color: #f8f9fa; padding: 20px; }
+    .pagada td { text-decoration: line-through; background-color: #f1f1f1; }
+    .badge-pagada { background-color: #28a745; color: white; padding: 5px 10px; border-radius: 5px; }
     @media print {
       body * { visibility: hidden; }
-      .modal-ticket, .modal-ticket * { visibility: visible; }
-      .modal-ticket { position: absolute; left: 0; top: 0; width: 100%; background: white; padding: 20px; }
+      #ticketContent, #ticketContent * { visibility: visible; }
+      #ticketContent { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
       .no-print { display: none; }
     }
   </style>
 </head>
-<body class="p-3">
+<body>
 
-<div class="container-lg">
-  <!-- Cabecera -->
-  <header class="my-3 text-center">
-    <h1 class="display-6">💰 Control de deudas <span class="text-muted">(sin Firebase)</span></h1>
-    <p class="lead small">Los datos se guardan en localStorage · persistencia local</p>
-  </header>
+<div class="container">
+  <h1 class="text-center mb-4">💰 Control de Deudas</h1>
 
-  <!-- SECCIÓN 1: TARJETAS DE RESUMEN -->
-  <section class="row g-3 mb-4" id="seccionResumen">
-    <div class="col-sm-6 col-md-3">
-      <div class="card card-resumen border-primary">
-        <div class="card-body text-center">
-          <h6 class="card-subtitle mb-1 text-muted">Total deudas</h6>
-          <h3 class="card-title text-primary" id="totalDeudas">0</h3>
+  <!-- Resumen -->
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card text-white bg-primary">
+        <div class="card-body">
+          <h5 class="card-title">Total</h5>
+          <h3 id="total">0</h3>
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-      <div class="card card-resumen border-success">
-        <div class="card-body text-center">
-          <h6 class="card-subtitle mb-1 text-muted">Promedio $</h6>
-          <h3 class="card-title text-success" id="promedio">$0</h3>
+    <div class="col-md-3">
+      <div class="card text-white bg-success">
+        <div class="card-body">
+          <h5 class="card-title">Promedio</h5>
+          <h3 id="promedio">$0</h3>
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-      <div class="card card-resumen border-warning">
-        <div class="card-body text-center">
-          <h6 class="card-subtitle mb-1 text-muted">Monto más alto</h6>
-          <h3 class="card-title text-warning" id="maximo">$0</h3>
+    <div class="col-md-3">
+      <div class="card text-white bg-warning">
+        <div class="card-body">
+          <h5 class="card-title">Máximo</h5>
+          <h3 id="maximo">$0</h3>
         </div>
       </div>
     </div>
-    <div class="col-sm-6 col-md-3">
-      <div class="card card-resumen border-danger">
-        <div class="card-body text-center">
-          <h6 class="card-subtitle mb-1 text-muted">Monto más bajo</h6>
-          <h3 class="card-title text-danger" id="minimo">$0</h3>
+    <div class="col-md-3">
+      <div class="card text-white bg-danger">
+        <div class="card-body">
+          <h5 class="card-title">Mínimo</h5>
+          <h3 id="minimo">$0</h3>
         </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- SECCIÓN 2: TABLA DE DEUDAS (con nuevo botón TICKET) -->
-  <section class="mb-4">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <h5>📋 Detalle de deudas</h5>
-      <span class="badge bg-secondary" id="contadorTabla">0 registros</span>
-    </div>
-    <div class="table-responsive">
-      <table class="table table-sm table-bordered table-hover align-middle">
-        <thead class="table-light">
-          <tr>
-            <th>Emisor</th><th>Receptor</th><th>Cédula</th><th>Monto</th><th>Descripción</th>
-            <th>Fecha/Hora</th><th>ID (corto)</th><th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="tablaDeudasBody">
-          <tr><td colspan="8" class="text-center text-muted">Cargando deudas...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- SECCIÓN 3: FORMULARIO NUEVA DEUDA -->
-  <section class="mb-4 p-3 bg-white rounded shadow-sm">
-    <h5>➕ Registrar nueva deuda</h5>
-    <form id="formNuevaDeuda" class="row g-3">
-      <div class="col-md-6">
-        <label class="form-label">Emisor *</label>
-        <input type="text" class="form-control" id="emisor" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Receptor *</label>
-        <input type="text" class="form-control" id="receptor" required>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Cédula del receptor</label>
-        <div class="d-flex align-items-center">
-          <input type="text" class="form-control" id="cedula" placeholder="Opcional">
-          <a href="http://www.tsj.gob.ve/" target="_blank" class="tsj-link ms-2">🔍 Ir al TSJ</a>
+  <!-- Formulario nueva deuda -->
+  <div class="card mb-4">
+    <div class="card-header">➕ Nueva Deuda</div>
+    <div class="card-body">
+      <form id="formDeuda">
+        <div class="row">
+          <div class="col-md-6 mb-2">
+            <input type="text" class="form-control" id="emisor" placeholder="Emisor" required>
+          </div>
+          <div class="col-md-6 mb-2">
+            <input type="text" class="form-control" id="receptor" placeholder="Receptor" required>
+          </div>
+          <div class="col-md-6 mb-2">
+            <input type="text" class="form-control" id="cedula" placeholder="Cédula (opcional)">
+            <small><a href="http://www.tsj.gob.ve/" target="_blank">Ir al TSJ</a></small>
+          </div>
+          <div class="col-md-6 mb-2">
+            <input type="number" step="0.01" class="form-control" id="monto" placeholder="Monto $" required>
+          </div>
+          <div class="col-12 mb-2">
+            <textarea class="form-control" id="descripcion" placeholder="Descripción" rows="2" required></textarea>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </div>
         </div>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Monto ($) *</label>
-        <input type="number" step="0.01" class="form-control" id="monto" required>
-      </div>
-      <div class="col-12">
-        <label class="form-label">Descripción *</label>
-        <textarea class="form-control" id="descripcion" rows="2" required></textarea>
-      </div>
-      <div class="col-12">
-        <button type="submit" class="btn btn-primary">Guardar deuda</button>
-      </div>
-    </form>
-  </section>
+      </form>
+    </div>
+  </div>
 
-  <!-- SECCIÓN 4: FOOTER -->
-  <footer class="footer pt-2 mt-3 text-center">
-    <p>⚡ App de broma – Luis Azuaje · clave mágica: <strong>Velocidad*20C</strong></p>
+  <!-- Tabla de deudas -->
+  <div class="card">
+    <div class="card-header">📋 Listado de Deudas</div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Emisor</th><th>Receptor</th><th>Cédula</th><th>Monto</th><th>Descripción</th>
+              <th>Fecha</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="text-center mt-4 text-muted">
+    App de broma - Luis Azuaje · Clave: Velocidad*20C
   </footer>
 </div>
 
-<!-- MODALES (3 para acciones + 1 para ticket) -->
-
-<!-- Modal EDITAR -->
-<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+<!-- Modales -->
+<div class="modal fade" id="modalEditar" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">✏️ Editar deuda</h5>
+        <h5 class="modal-title">Editar Deuda</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <form id="formEditar">
-          <input type="hidden" id="editDocId">
-          <div class="mb-2">
-            <label class="form-label">Emisor</label>
-            <input type="text" class="form-control" id="editEmisor" required>
-          </div>
-          <div class="mb-2">
-            <label class="form-label">Receptor</label>
-            <input type="text" class="form-control" id="editReceptor" required>
-          </div>
-          <div class="mb-2">
-            <label class="form-label">Cédula</label>
-            <input type="text" class="form-control" id="editCedula">
-          </div>
-          <div class="mb-2">
-            <label class="form-label">Monto ($)</label>
-            <input type="number" step="0.01" class="form-control" id="editMonto" required>
-          </div>
-          <div class="mb-2">
-            <label class="form-label">Descripción</label>
-            <textarea class="form-control" id="editDescripcion" rows="2" required></textarea>
-          </div>
-          <hr>
-          <div class="mb-2">
-            <label class="form-label">🔐 Clave de seguridad</label>
-            <input type="password" class="form-control" id="editPassword" placeholder="Velocidad*20C" required>
-            <div class="password-small" id="editError"></div>
-          </div>
-        </form>
+        <input type="hidden" id="editId">
+        <input type="text" class="form-control mb-2" id="editEmisor" placeholder="Emisor">
+        <input type="text" class="form-control mb-2" id="editReceptor" placeholder="Receptor">
+        <input type="text" class="form-control mb-2" id="editCedula" placeholder="Cédula">
+        <input type="number" step="0.01" class="form-control mb-2" id="editMonto" placeholder="Monto">
+        <textarea class="form-control mb-2" id="editDescripcion" placeholder="Descripción"></textarea>
+        <input type="password" class="form-control" id="editClave" placeholder="Clave de seguridad">
+        <div class="text-danger" id="editError"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-primary" id="confirmarEditar">Actualizar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal ELIMINAR -->
-<div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalEliminar" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">🗑️ Eliminar deuda</h5>
+        <h5 class="modal-title">Eliminar Deuda</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p>¿Eliminar permanentemente esta deuda?</p>
-        <input type="hidden" id="deleteDocId">
-        <label class="form-label">🔐 Clave de seguridad</label>
-        <input type="password" class="form-control" id="deletePassword" placeholder="Velocidad*20C" required>
-        <div class="password-small" id="deleteError"></div>
+        <input type="hidden" id="deleteId">
+        <p>¿Estás seguro?</p>
+        <input type="password" class="form-control" id="deleteClave" placeholder="Clave de seguridad">
+        <div class="text-danger" id="deleteError"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-danger" id="confirmarEliminar">Eliminar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal PAGAR -->
-<div class="modal fade" id="modalPagar" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalPagar" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">✅ Marcar como pagada</h5>
+        <h5 class="modal-title">Marcar como Pagada</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p>Esto cambiará el estado a <strong>pagada</strong> (no elimina).</p>
-        <input type="hidden" id="payDocId">
-        <label class="form-label">🔐 Clave de seguridad</label>
-        <input type="password" class="form-control" id="payPassword" placeholder="Velocidad*20C" required>
-        <div class="password-small" id="payError"></div>
+        <input type="hidden" id="pagarId">
+        <input type="password" class="form-control" id="pagarClave" placeholder="Clave de seguridad">
+        <div class="text-danger" id="pagarError"></div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-success" id="confirmarPagar">Pagar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal TICKET (para visualizar e imprimir) -->
-<div class="modal fade" id="modalTicket" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-ticket">
+<div class="modal fade" id="modalTicket" tabindex="-1">
+  <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header no-print">
-        <h5 class="modal-title">🧾 Ticket de deuda</h5>
+        <h5 class="modal-title">Ticket</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body" id="ticketContent">
-        <!-- contenido dinámico cargado por JS -->
-      </div>
+      <div class="modal-body" id="ticketContent"></div>
       <div class="modal-footer no-print">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-        <button class="btn btn-primary" id="imprimirTicket">🖨️ Imprimir ticket</button>
+        <button class="btn btn-primary" id="imprimirTicket">Imprimir</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Bootstrap JS -->
+<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
 <script>
 (function() {
-  // --- Clave secreta ---
   const CLAVE = "Velocidad*20C";
-
-  // --- Elementos DOM frecuentes ---
-  const tablaBody = document.getElementById('tablaDeudasBody');
-  const totalSpan = document.getElementById('totalDeudas');
-  const promedioSpan = document.getElementById('promedio');
-  const maximoSpan = document.getElementById('maximo');
-  const minimoSpan = document.getElementById('minimo');
-  const contadorTabla = document.getElementById('contadorTabla');
-
-  // --- Almacén en memoria (array de deudas) ---
+  const STORAGE_KEY = 'deudas_app';
   let deudas = [];
 
-  // --- Clave para localStorage ---
-  const STORAGE_KEY = 'deudas_app';
-
-  // --- Cargar datos iniciales ---
-  function cargarDeudas() {
+  // Cargar datos
+  try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        deudas = JSON.parse(stored);
-        // Asegurar que cada deuda tenga fecha como string (si no, asignar ahora)
-        deudas = deudas.map(d => {
-          if (!d.fecha) d.fecha = new Date().toISOString();
-          return d;
-        });
-      } catch (e) {
-        deudas = [];
-      }
-    } else {
-      deudas = [];
-    }
-    // Ordenar por fecha descendente (más reciente primero)
-    deudas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    deudas = stored ? JSON.parse(stored) : [];
+  } catch(e) {
+    deudas = [];
   }
 
-  // --- Guardar en localStorage y renderizar ---
-  function guardarYRenderizar() {
+  // Guardar y renderizar
+  function guardar() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(deudas));
-    renderizarTodo();
+    renderizar();
   }
 
-  // --- Renderizar tabla y resumen ---
-  function renderizarTodo() {
-    // Ordenar antes de mostrar
-    deudas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-
-    // 1. Renderizar tabla
-    if (deudas.length === 0) {
-      tablaBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No hay deudas registradas</td></tr>`;
-      contadorTabla.innerText = '0 registros';
-    } else {
-      let html = '';
-      deudas.forEach(d => {
-        const pagadaClass = d.pagada ? 'pagada' : '';
-        const montoFormato = '$' + (d.monto || 0).toFixed(2);
-        const idCorto = d.id.substring(0, 5) + '…';
-        // Fecha formateada
-        const fecha = new Date(d.fecha);
-        const fechaStr = fecha.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' });
-
-        // Botones: editar, eliminar, ticket, y pagar/badge
-        const botonPagar = d.pagada ? 
-          '<span class="badge badge-pagada">Pagada</span>' : 
-          `<button class="btn btn-sm btn-outline-success btn-pagar" data-id="${d.id}">Pagar</button>`;
-
-        html += `<tr class="${pagadaClass}" data-id="${d.id}">
-          <td>${escapeHTML(d.emisor || '')}</td>
-          <td>${escapeHTML(d.receptor || '')}</td>
-          <td>${escapeHTML(d.cedula || '')}</td>
-          <td>${montoFormato}</td>
-          <td>${escapeHTML(d.descripcion || '')}</td>
-          <td>${fechaStr}</td>
-          <td><small class="text-muted" title="${d.id}">${idCorto}</small></td>
-          <td>
-            <button class="btn btn-sm btn-warning btn-editar" data-id="${d.id}">Editar</button>
-            <button class="btn btn-sm btn-danger btn-eliminar" data-id="${d.id}">Eliminar</button>
-            <button class="btn btn-sm btn-info btn-ticket" data-id="${d.id}">Ticket</button>
-            ${botonPagar}
-          </td>
-        </tr>`;
-      });
-      tablaBody.innerHTML = html;
-      contadorTabla.innerText = deudas.length + ' registros';
+  // Renderizar todo
+  function renderizar() {
+    const tbody = document.getElementById('tablaBody');
+    if (!deudas.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay deudas</td></tr>';
+      document.getElementById('total').innerText = '0';
+      document.getElementById('promedio').innerText = '$0';
+      document.getElementById('maximo').innerText = '$0';
+      document.getElementById('minimo').innerText = '$0';
+      return;
     }
 
-    // 2. Calcular resumen (todos los montos)
+    // Ordenar por fecha
+    deudas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+    // Calcular resumen
     const montos = deudas.map(d => d.monto || 0);
     const total = deudas.length;
-    const suma = montos.reduce((a,b) => a + b, 0);
-    const promedio = total ? suma / total : 0;
-    const maximo = total ? Math.max(...montos) : 0;
-    const minimo = total ? Math.min(...montos) : 0;
+    const suma = montos.reduce((a,b) => a+b, 0);
+    const max = Math.max(...montos);
+    const min = Math.min(...montos);
 
-    totalSpan.innerText = total;
-    promedioSpan.innerText = '$' + promedio.toFixed(2);
-    maximoSpan.innerText = '$' + maximo.toFixed(2);
-    minimoSpan.innerText = '$' + minimo.toFixed(2);
-  }
+    document.getElementById('total').innerText = total;
+    document.getElementById('promedio').innerText = '$' + (suma/total).toFixed(2);
+    document.getElementById('maximo').innerText = '$' + max.toFixed(2);
+    document.getElementById('minimo').innerText = '$' + min.toFixed(2);
 
-  // Helper escape
-  function escapeHTML(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>"]/g, function(m) {
-      if (m === '&') return '&amp;';
-      if (m === '<') return '&lt;';
-      if (m === '>') return '&gt;';
-      if (m === '"') return '&quot;';
-      return m;
+    // Renderizar tabla
+    let html = '';
+    deudas.forEach(d => {
+      const fecha = new Date(d.fecha).toLocaleString();
+      const pagadaClass = d.pagada ? 'pagada' : '';
+      const estadoPago = d.pagada ? '<span class="badge-pagada">Pagada</span>' : 
+        `<button class="btn btn-sm btn-success btn-pagar" data-id="${d.id}">Pagar</button>`;
+      
+      html += `<tr class="${pagadaClass}">
+        <td>${d.emisor || ''}</td>
+        <td>${d.receptor || ''}</td>
+        <td>${d.cedula || ''}</td>
+        <td>$${(d.monto || 0).toFixed(2)}</td>
+        <td>${d.descripcion || ''}</td>
+        <td>${fecha}</td>
+        <td>
+          <button class="btn btn-sm btn-warning btn-editar" data-id="${d.id}">Editar</button>
+          <button class="btn btn-sm btn-danger btn-eliminar" data-id="${d.id}">Eliminar</button>
+          <button class="btn btn-sm btn-info btn-ticket" data-id="${d.id}">Ticket</button>
+          ${estadoPago}
+        </td>
+      </tr>`;
     });
+    tbody.innerHTML = html;
   }
 
-  // --- Generar ID único simple ---
-  function generarId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-  }
-
-  // --- Inicializar ---
-  cargarDeudas();
-  renderizarTodo();
-
-  // --- Formulario nueva deuda ---
-  document.getElementById('formNuevaDeuda').addEventListener('submit', e => {
+  // Nueva deuda
+  document.getElementById('formDeuda').addEventListener('submit', function(e) {
     e.preventDefault();
-    const emisor = document.getElementById('emisor').value.trim();
-    const receptor = document.getElementById('receptor').value.trim();
-    const cedula = document.getElementById('cedula').value.trim();
-    const monto = parseFloat(document.getElementById('monto').value);
-    const descripcion = document.getElementById('descripcion').value.trim();
-
-    if (!emisor || !receptor || isNaN(monto) || !descripcion) return;
-
     const nueva = {
-      id: generarId(),
-      emisor,
-      receptor,
-      cedula: cedula || '',
-      monto,
-      descripcion,
+      id: Date.now().toString(36) + Math.random().toString(36),
+      emisor: document.getElementById('emisor').value,
+      receptor: document.getElementById('receptor').value,
+      cedula: document.getElementById('cedula').value,
+      monto: parseFloat(document.getElementById('monto').value),
+      descripcion: document.getElementById('descripcion').value,
       fecha: new Date().toISOString(),
       pagada: false
     };
-
     deudas.push(nueva);
-    guardarYRenderizar();
-    e.target.reset();
+    guardar();
+    this.reset();
   });
 
-  // --- Delegación de eventos para botones de tabla ---
+  // Eventos de botones
   document.addEventListener('click', function(e) {
     const target = e.target;
-
-    // Editar
+    
     if (target.classList.contains('btn-editar')) {
-      const id = target.getAttribute('data-id');
-      const deuda = deudas.find(d => d.id === id);
-      if (!deuda) return;
-
-      document.getElementById('editDocId').value = deuda.id;
-      document.getElementById('editEmisor').value = deuda.emisor || '';
-      document.getElementById('editReceptor').value = deuda.receptor || '';
-      document.getElementById('editCedula').value = deuda.cedula || '';
-      document.getElementById('editMonto').value = deuda.monto || 0;
-      document.getElementById('editDescripcion').value = deuda.descripcion || '';
-      document.getElementById('editPassword').value = '';
+      const id = target.dataset.id;
+      const d = deudas.find(d => d.id === id);
+      if (!d) return;
+      document.getElementById('editId').value = d.id;
+      document.getElementById('editEmisor').value = d.emisor || '';
+      document.getElementById('editReceptor').value = d.receptor || '';
+      document.getElementById('editCedula').value = d.cedula || '';
+      document.getElementById('editMonto').value = d.monto || 0;
+      document.getElementById('editDescripcion').value = d.descripcion || '';
+      document.getElementById('editClave').value = '';
       document.getElementById('editError').innerText = '';
-
       new bootstrap.Modal(document.getElementById('modalEditar')).show();
     }
-    // Eliminar
+    
     else if (target.classList.contains('btn-eliminar')) {
-      const id = target.getAttribute('data-id');
-      document.getElementById('deleteDocId').value = id;
-      document.getElementById('deletePassword').value = '';
+      document.getElementById('deleteId').value = target.dataset.id;
+      document.getElementById('deleteClave').value = '';
       document.getElementById('deleteError').innerText = '';
       new bootstrap.Modal(document.getElementById('modalEliminar')).show();
     }
-    // Pagar
+    
     else if (target.classList.contains('btn-pagar')) {
-      const id = target.getAttribute('data-id');
-      document.getElementById('payDocId').value = id;
-      document.getElementById('payPassword').value = '';
-      document.getElementById('payError').innerText = '';
+      document.getElementById('pagarId').value = target.dataset.id;
+      document.getElementById('pagarClave').value = '';
+      document.getElementById('pagarError').innerText = '';
       new bootstrap.Modal(document.getElementById('modalPagar')).show();
     }
-    // Ticket
+    
     else if (target.classList.contains('btn-ticket')) {
-      const id = target.getAttribute('data-id');
-      const deuda = deudas.find(d => d.id === id);
-      if (!deuda) return;
-
-      // Formatear contenido del ticket
-      const fecha = new Date(deuda.fecha).toLocaleString('es-VE');
-      const pagadaTexto = deuda.pagada ? '✅ PAGADA' : '⏳ PENDIENTE';
-      const ticketHTML = `
-        <div style="font-family: monospace; padding: 10px;">
-          <h4 class="text-center">🧾 TICKET DE DEUDA</h4>
-          <hr>
-          <p><strong>ID:</strong> ${deuda.id}</p>
-          <p><strong>Emisor:</strong> ${escapeHTML(deuda.emisor)}</p>
-          <p><strong>Receptor:</strong> ${escapeHTML(deuda.receptor)}</p>
-          <p><strong>Cédula:</strong> ${escapeHTML(deuda.cedula) || '—'}</p>
-          <p><strong>Monto:</strong> $${deuda.monto.toFixed(2)}</p>
-          <p><strong>Descripción:</strong> ${escapeHTML(deuda.descripcion)}</p>
-          <p><strong>Fecha:</strong> ${fecha}</p>
-          <p><strong>Estado:</strong> ${pagadaTexto}</p>
-          <hr>
-          <p class="text-muted">App de broma - Luis Azuaje</p>
+      const id = target.dataset.id;
+      const d = deudas.find(d => d.id === id);
+      if (!d) return;
+      document.getElementById('ticketContent').innerHTML = `
+        <div style="font-family: monospace;">
+          <h4>TICKET DE DEUDA</h4>
+          <p><strong>ID:</strong> ${d.id}</p>
+          <p><strong>Emisor:</strong> ${d.emisor}</p>
+          <p><strong>Receptor:</strong> ${d.receptor}</p>
+          <p><strong>Cédula:</strong> ${d.cedula || 'N/A'}</p>
+          <p><strong>Monto:</strong> $${d.monto.toFixed(2)}</p>
+          <p><strong>Descripción:</strong> ${d.descripcion}</p>
+          <p><strong>Fecha:</strong> ${new Date(d.fecha).toLocaleString()}</p>
+          <p><strong>Estado:</strong> ${d.pagada ? 'PAGADA' : 'PENDIENTE'}</p>
+          <p>App de broma - Luis Azuaje</p>
         </div>
       `;
-      document.getElementById('ticketContent').innerHTML = ticketHTML;
       new bootstrap.Modal(document.getElementById('modalTicket')).show();
     }
   });
 
-  // --- Confirmar Editar ---
+  // Confirmar Editar
   document.getElementById('confirmarEditar').addEventListener('click', function() {
-    const clave = document.getElementById('editPassword').value;
-    if (clave !== CLAVE) {
-      document.getElementById('editError').innerText = '❌ Clave incorrecta. Contacta a Luis Azuaje.';
+    if (document.getElementById('editClave').value !== CLAVE) {
+      document.getElementById('editError').innerText = 'Clave incorrecta';
       return;
     }
-    const id = document.getElementById('editDocId').value;
-    const emisor = document.getElementById('editEmisor').value.trim();
-    const receptor = document.getElementById('editReceptor').value.trim();
-    const cedula = document.getElementById('editCedula').value.trim();
-    const monto = parseFloat(document.getElementById('editMonto').value);
-    const descripcion = document.getElementById('editDescripcion').value.trim();
-
-    if (!emisor || !receptor || isNaN(monto) || !descripcion) {
-      alert('Todos los campos obligatorios deben estar llenos.');
-      return;
-    }
-
+    const id = document.getElementById('editId').value;
     const index = deudas.findIndex(d => d.id === id);
     if (index !== -1) {
-      deudas[index] = { ...deudas[index], emisor, receptor, cedula, monto, descripcion };
-      guardarYRenderizar();
+      deudas[index] = {
+        ...deudas[index],
+        emisor: document.getElementById('editEmisor').value,
+        receptor: document.getElementById('editReceptor').value,
+        cedula: document.getElementById('editCedula').value,
+        monto: parseFloat(document.getElementById('editMonto').value),
+        descripcion: document.getElementById('editDescripcion').value
+      };
+      guardar();
+      bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
     }
-    bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
   });
 
-  // --- Confirmar Eliminar ---
+  // Confirmar Eliminar
   document.getElementById('confirmarEliminar').addEventListener('click', function() {
-    const clave = document.getElementById('deletePassword').value;
-    if (clave !== CLAVE) {
-      document.getElementById('deleteError').innerText = '❌ Clave incorrecta. Operación denegada.';
+    if (document.getElementById('deleteClave').value !== CLAVE) {
+      document.getElementById('deleteError').innerText = 'Clave incorrecta';
       return;
     }
-    const id = document.getElementById('deleteDocId').value;
+    const id = document.getElementById('deleteId').value;
     deudas = deudas.filter(d => d.id !== id);
-    guardarYRenderizar();
+    guardar();
     bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
   });
 
-  // --- Confirmar Pagar ---
+  // Confirmar Pagar
   document.getElementById('confirmarPagar').addEventListener('click', function() {
-    const clave = document.getElementById('payPassword').value;
-    if (clave !== CLAVE) {
-      document.getElementById('payError').innerText = '❌ Clave incorrecta. No seas tramposo.';
+    if (document.getElementById('pagarClave').value !== CLAVE) {
+      document.getElementById('pagarError').innerText = 'Clave incorrecta';
       return;
     }
-    const id = document.getElementById('payDocId').value;
+    const id = document.getElementById('pagarId').value;
     const index = deudas.findIndex(d => d.id === id);
     if (index !== -1) {
       deudas[index].pagada = true;
-      guardarYRenderizar();
+      guardar();
+      bootstrap.Modal.getInstance(document.getElementById('modalPagar')).hide();
     }
-    bootstrap.Modal.getInstance(document.getElementById('modalPagar')).hide();
   });
 
-  // --- Imprimir ticket desde el modal ---
+  // Imprimir ticket
   document.getElementById('imprimirTicket').addEventListener('click', function() {
     window.print();
   });
 
-  // --- Limpiar errores al cerrar modales ---
-  ['modalEditar', 'modalEliminar', 'modalPagar'].forEach(id => {
-    document.getElementById(id).addEventListener('hidden.bs.modal', function() {
-      const errorDiv = this.querySelector('.password-small');
-      if (errorDiv) errorDiv.innerText = '';
-    });
-  });
-
+  // Render inicial
+  renderizar();
 })();
 </script>
 
-<!-- Pequeño ajuste para que el modal de ticket sea visible al imprimir -->
 </body>
 </html>

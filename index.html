@@ -1,364 +1,473 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MVP Calendario de Clases</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FullCalendar CSS (v5) -->
-    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/core@5.11.3/main.min.css' rel='stylesheet' />
-    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@5.11.3/main.min.css' rel='stylesheet' />
-    <link href='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@5.11.3/main.min.css' rel='stylesheet' />
-    <!-- FullCalendar JS (v5) -->
-    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core@5.11.3/main.min.js'></script>
-    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@5.11.3/main.min.js'></script>
-    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/timegrid@5.11.3/main.min.js'></script>
-    <script src='https://cdn.jsdelivr.net/npm/@fullcalendar/interaction@5.11.3/main.min.js'></script>
-    <!-- Fuente opcional -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        /* Ajustes personalizados para FullCalendar */
-        .fc .fc-toolbar-title { font-size: 1.25rem; font-weight: 600; color: #1f2937; }
-        .fc .fc-button-primary { background-color: #2563eb; border-color: #2563eb; }
-        .fc .fc-button-primary:hover { background-color: #1d4ed8; border-color: #1d4ed8; }
-        .fc .fc-col-header-cell-cushion { color: #374151; font-weight: 500; }
-        .fc .fc-timegrid-slot-label { color: #4b5563; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Deudas · Luis Azuaje (broma)</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .card-resumen { transition: transform 0.1s ease; }
+    .card-resumen:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    .badge-pagada { background-color: #28a745; color: white; font-size: 0.8rem; }
+    .table tbody tr.pagada td { text-decoration: line-through; background-color: #f1f1f1; color: #6c757d; }
+    .tsj-link { font-size: 0.9rem; margin-left: 5px; }
+    .footer { border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9rem; }
+    .password-small { font-size: 0.8rem; color: #dc3545; }
+  </style>
 </head>
-<body class="bg-gray-50 p-6">
-    <div class="max-w-7xl mx-auto">
-        <!-- Cabecera con botón añadir y hoy -->
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-            <h1 class="text-3xl font-bold text-gray-800 mb-4 md:mb-0">📅 Calendario de Clases (MVP)</h1>
-            <div class="flex gap-3">
-                <button id="openModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow transition flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                    Añadir clase
-                </button>
-                <button id="todayBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg shadow transition">
-                    Hoy
-                </button>
-            </div>
-        </div>
+<body class="p-3">
 
-        <!-- Leyenda de profesores (colores) -->
-        <div class="flex flex-wrap gap-4 mb-4 text-sm">
-            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-blue-500 mr-2"></span> Prof. Ana (Matemáticas)</div>
-            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 mr-2"></span> Prof. Luis (Física)</div>
-            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-orange-500 mr-2"></span> Prof. Carla (Química)</div>
-            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-500 mr-2"></span> Prof. Marta (Historia)</div>
-        </div>
+<div class="container-lg">
+  <!-- Cabecera ligera -->
+  <header class="my-3 text-center">
+    <h1 class="display-6">💰 Control de deudas <span class="text-muted">(broma privada)</span></h1>
+    <p class="lead small">Los datos viven en Firestore · cambios en tiempo real</p>
+  </header>
 
-        <!-- Contenedor del calendario -->
-        <div id="calendar" class="bg-white p-4 rounded-xl shadow-lg"></div>
+  <!-- SECCIÓN 1: TARJETAS DE RESUMEN -->
+  <section class="row g-3 mb-4" id="seccionResumen">
+    <div class="col-sm-6 col-md-3">
+      <div class="card card-resumen border-primary">
+        <div class="card-body text-center">
+          <h6 class="card-subtitle mb-1 text-muted">Total deudas</h6>
+          <h3 class="card-title text-primary" id="totalDeudas">0</h3>
+        </div>
+      </div>
     </div>
-
-    <!-- Modal para añadir/editar clase (reutilizable) -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 mx-4">
-            <h2 id="modalTitle" class="text-2xl font-bold text-gray-800 mb-4">➕ Nueva clase</h2>
-            <form id="classForm">
-                <!-- Campo oculto para el ID del evento (cuando se edita) -->
-                <input type="hidden" id="eventId" value="">
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 font-medium mb-2">Título de la clase</label>
-                    <input type="text" id="title" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" placeholder="Ej. Matemáticas avanzadas">
-                </div>
-                <div class="mb-4">
-                    <label class="block text-gray-700 font-medium mb-2">Profesor</label>
-                    <select id="professor" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                        <option value="Ana">Prof. Ana (Matemáticas)</option>
-                        <option value="Luis">Prof. Luis (Física)</option>
-                        <option value="Carla">Prof. Carla (Química)</option>
-                        <option value="Marta">Prof. Marta (Historia)</option>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">Día</label>
-                        <select id="day" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                            <option value="1">Lunes</option>
-                            <option value="2">Martes</option>
-                            <option value="3">Miércoles</option>
-                            <option value="4">Jueves</option>
-                            <option value="5">Viernes</option>
-                            <option value="6">Sábado</option>
-                            <option value="0">Domingo</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">Color</label>
-                        <select id="color" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                            <option value="blue">Azul</option>
-                            <option value="green">Verde</option>
-                            <option value="orange">Naranja</option>
-                            <option value="purple">Morado</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">Hora inicio</label>
-                        <input type="time" id="startTime" required value="09:00" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-gray-700 font-medium mb-2">Hora fin</label>
-                        <input type="time" id="endTime" required value="10:30" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                    </div>
-                </div>
-                <div class="flex justify-between gap-3">
-                    <div>
-                        <button type="button" id="deleteEventBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition hidden">Eliminar</button>
-                    </div>
-                    <div class="flex gap-3">
-                        <button type="button" id="closeModalBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition">Cancelar</button>
-                        <button type="submit" id="saveEventBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Guardar</button>
-                    </div>
-                </div>
-            </form>
+    <div class="col-sm-6 col-md-3">
+      <div class="card card-resumen border-success">
+        <div class="card-body text-center">
+          <h6 class="card-subtitle mb-1 text-muted">Promedio $</h6>
+          <h3 class="card-title text-success" id="promedio">$0</h3>
         </div>
+      </div>
     </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card card-resumen border-warning">
+        <div class="card-body text-center">
+          <h6 class="card-subtitle mb-1 text-muted">Monto más alto</h6>
+          <h3 class="card-title text-warning" id="maximo">$0</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card card-resumen border-danger">
+        <div class="card-body text-center">
+          <h6 class="card-subtitle mb-1 text-muted">Monto más bajo</h6>
+          <h3 class="card-title text-danger" id="minimo">$0</h3>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <script>
-        (function() {
-            // ----- Configuración de semana actual (lunes como inicio) -----
-            function getStartOfWeek() {
-                const today = new Date();
-                const day = today.getDay(); // 0 domingo, 1 lunes...
-                const diff = day === 0 ? -6 : 1 - day; // Ajuste para que la semana empiece en lunes
-                const monday = new Date(today);
-                monday.setDate(today.getDate() + diff);
-                monday.setHours(0,0,0,0);
-                return monday;
-            }
-            const baseDate = getStartOfWeek(); // lunes de la semana actual
+  <!-- SECCIÓN 2: TABLA DE DEUDAS -->
+  <section class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h5>📋 Detalle de deudas</h5>
+      <span class="badge bg-secondary" id="contadorTabla">0 registros</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Emisor</th><th>Receptor</th><th>Cédula</th><th>Monto</th><th>Descripción</th>
+            <th>Fecha/Hora</th><th>ID (corto)</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaDeudasBody">
+          <tr><td colspan="8" class="text-center text-muted">Cargando deudas...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
-            // Mapeo de días (0 domingo..6 sábado) a offset desde baseDate
-            function getDateForDay(dayIndex) {
-                const date = new Date(baseDate);
-                if (dayIndex === 0) { // domingo
-                    date.setDate(baseDate.getDate() + 6);
-                } else {
-                    date.setDate(baseDate.getDate() + (dayIndex - 1));
-                }
-                return date;
-            }
+  <!-- SECCIÓN 3: FORMULARIO NUEVA DEUDA -->
+  <section class="mb-4 p-3 bg-white rounded shadow-sm">
+    <h5>➕ Registrar nueva deuda</h5>
+    <form id="formNuevaDeuda" class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Emisor *</label>
+        <input type="text" class="form-control" id="emisor" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Receptor *</label>
+        <input type="text" class="form-control" id="receptor" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Cédula del receptor</label>
+        <div class="d-flex align-items-center">
+          <input type="text" class="form-control" id="cedula" placeholder="Opcional">
+          <a href="http://www.tsj.gob.ve/" target="_blank" class="tsj-link ms-2">🔍 Ir al TSJ</a>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Monto ($) *</label>
+        <input type="number" step="0.01" class="form-control" id="monto" required>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Descripción *</label>
+        <textarea class="form-control" id="descripcion" rows="2" required></textarea>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">Guardar deuda</button>
+      </div>
+    </form>
+  </section>
 
-            // ----- Datos de ejemplo (eventos iniciales) -----
-            const initialEvents = [
-                { id: '1', title: 'Matemáticas - Ana', professor: 'Ana', day: 1, startTime: '10:00', endTime: '11:30', color: 'blue' },
-                { id: '2', title: 'Física - Luis', professor: 'Luis', day: 2, startTime: '14:00', endTime: '15:30', color: 'green' },
-                { id: '3', title: 'Química - Carla', professor: 'Carla', day: 3, startTime: '08:00', endTime: '09:30', color: 'orange' },
-                { id: '4', title: 'Historia - Marta', professor: 'Marta', day: 4, startTime: '16:00', endTime: '17:30', color: 'purple' },
-                { id: '5', title: 'Matemáticas - Ana', professor: 'Ana', day: 5, startTime: '12:00', endTime: '13:30', color: 'blue' },
-            ];
+  <!-- SECCIÓN 4: FOOTER -->
+  <footer class="footer pt-2 mt-3 text-center">
+    <p>⚡ App de broma – Luis Azuaje · clave mágica: <strong>Velocidad*20C</strong></p>
+  </footer>
+</div>
 
-            // Convertir eventos iniciales a objetos con start/end Date
-            function buildEventsFromArray(arr) {
-                return arr.map(e => {
-                    const date = getDateForDay(e.day);
-                    const [startH, startM] = e.startTime.split(':');
-                    const [endH, endM] = e.endTime.split(':');
-                    const start = new Date(date);
-                    start.setHours(parseInt(startH), parseInt(startM), 0);
-                    const end = new Date(date);
-                    end.setHours(parseInt(endH), parseInt(endM), 0);
-                    return {
-                        id: e.id,
-                        title: e.title,
-                        start: start,
-                        end: end,
-                        backgroundColor: e.color === 'blue' ? '#3b82f6' : e.color === 'green' ? '#22c55e' : e.color === 'orange' ? '#f97316' : '#a855f7',
-                        borderColor: 'white',
-                        textColor: 'white',
-                        extendedProps: { 
-                            professor: e.professor,
-                            day: e.day,
-                            startTime: e.startTime,
-                            endTime: e.endTime,
-                            color: e.color
-                        }
-                    };
-                });
-            }
+<!-- MODALES (3) para acciones protegidas -->
 
-            let events = buildEventsFromArray(initialEvents);
+<!-- Modal EDITAR -->
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">✏️ Editar deuda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formEditar">
+          <input type="hidden" id="editDocId">
+          <div class="mb-2">
+            <label class="form-label">Emisor</label>
+            <input type="text" class="form-control" id="editEmisor" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Receptor</label>
+            <input type="text" class="form-control" id="editReceptor" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Cédula</label>
+            <input type="text" class="form-control" id="editCedula">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Monto ($)</label>
+            <input type="number" step="0.01" class="form-control" id="editMonto" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Descripción</label>
+            <textarea class="form-control" id="editDescripcion" rows="2" required></textarea>
+          </div>
+          <hr>
+          <div class="mb-2">
+            <label class="form-label">🔐 Clave de seguridad</label>
+            <input type="password" class="form-control" id="editPassword" placeholder="Velocidad*20C" required>
+            <div class="password-small" id="editError"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" id="confirmarEditar">Actualizar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-            // ----- Inicializar FullCalendar con plugins -----
-            const calendarEl = document.getElementById('calendar');
-            const calendar = new FullCalendar.Calendar(calendarEl, {
-                plugins: [ FullCalendar.DayGrid, FullCalendar.TimeGrid, FullCalendar.Interaction ],
-                initialView: 'timeGridWeek',
-                initialDate: baseDate,
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                },
-                slotMinTime: '07:00:00',
-                slotMaxTime: '21:00:00',
-                allDaySlot: false,
-                height: 'auto',
-                locale: 'es',
-                buttonText: {
-                    today: 'Hoy',
-                    month: 'Mes',
-                    week: 'Semana',
-                    day: 'Día'
-                },
-                events: events,
-                eventClick: function(info) {
-                    // Abrir modal en modo edición con los datos del evento
-                    openEditModal(info.event);
-                }
-            });
+<!-- Modal ELIMINAR -->
+<div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">🗑️ Eliminar deuda</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>¿Eliminar permanentemente esta deuda?</p>
+        <input type="hidden" id="deleteDocId">
+        <label class="form-label">🔐 Clave de seguridad</label>
+        <input type="password" class="form-control" id="deletePassword" placeholder="Velocidad*20C" required>
+        <div class="password-small" id="deleteError"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-danger" id="confirmarEliminar">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-            calendar.render();
+<!-- Modal PAGAR -->
+<div class="modal fade" id="modalPagar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">✅ Marcar como pagada</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Esto cambiará el estado a <strong>pagada</strong> (no elimina).</p>
+        <input type="hidden" id="payDocId">
+        <label class="form-label">🔐 Clave de seguridad</label>
+        <input type="password" class="form-control" id="payPassword" placeholder="Velocidad*20C" required>
+        <div class="password-small" id="payError"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-success" id="confirmarPagar">Pagar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-            // ----- Referencias al modal y formulario -----
-            const modal = document.getElementById('modal');
-            const modalTitle = document.getElementById('modalTitle');
-            const classForm = document.getElementById('classForm');
-            const eventIdInput = document.getElementById('eventId');
-            const titleInput = document.getElementById('title');
-            const professorSelect = document.getElementById('professor');
-            const daySelect = document.getElementById('day');
-            const colorSelect = document.getElementById('color');
-            const startTimeInput = document.getElementById('startTime');
-            const endTimeInput = document.getElementById('endTime');
-            const deleteBtn = document.getElementById('deleteEventBtn');
-            const closeModalBtn = document.getElementById('closeModalBtn');
-            const openModalBtn = document.getElementById('openModalBtn');
-            const todayBtn = document.getElementById('todayBtn');
+<!-- FIREBASE (compat) y BOOTSTRAP JS -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
-            // Abrir modal para nuevo evento
-            function openNewModal() {
-                modalTitle.innerText = '➕ Nueva clase';
-                eventIdInput.value = '';
-                classForm.reset();
-                startTimeInput.value = '09:00';
-                endTimeInput.value = '10:30';
-                deleteBtn.classList.add('hidden');
-                modal.classList.remove('hidden');
-            }
+<script>
+(function() {
+  // --- CONFIGURACIÓN FIREBASE (proporcionada) ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyDafm0dGv_WQ0nuco9IqQJtdX9bn972gdg",
+    authDomain: "luis-azuaje.firebaseapp.com",
+    projectId: "luis-azuaje",
+    storageBucket: "luis-azuaje.firebasestorage.app",
+    messagingSenderId: "763595536872",
+    appId: "1:763595536872:web:841a92cbd3a9828cfccc5d",
+    measurementId: "G-2407EEFRR6"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const deudasCol = db.collection('deudas');
+  const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 
-            // Abrir modal para editar evento
-            function openEditModal(event) {
-                modalTitle.innerText = '✏️ Editar clase';
-                eventIdInput.value = event.id;
-                
-                // Rellenar campos con los datos del evento
-                titleInput.value = event.title.replace(` - ${event.extendedProps.professor}`, ''); // Quitamos el profesor del título si está
-                professorSelect.value = event.extendedProps.professor;
-                daySelect.value = event.extendedProps.day;
-                colorSelect.value = event.extendedProps.color;
-                startTimeInput.value = event.extendedProps.startTime;
-                endTimeInput.value = event.extendedProps.endTime;
-                
-                deleteBtn.classList.remove('hidden');
-                modal.classList.remove('hidden');
-            }
+  // --- variables globales y elementos del DOM ---
+  const tablaBody = document.getElementById('tablaDeudasBody');
+  const totalSpan = document.getElementById('totalDeudas');
+  const promedioSpan = document.getElementById('promedio');
+  const maximoSpan = document.getElementById('maximo');
+  const minimoSpan = document.getElementById('minimo');
+  const contadorTabla = document.getElementById('contadorTabla');
 
-            // Cerrar modal
-            function closeModal() {
-                modal.classList.add('hidden');
-            }
+  // datos actuales en memoria (para cálculos y edición)
+  let deudasActuales = []; // { id, ... }
 
-            openModalBtn.addEventListener('click', openNewModal);
-            closeModalBtn.addEventListener('click', closeModal);
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModal();
-            });
+  // --- actualizar resumen y tabla a partir de un snapshot de Firestore ---
+  function actualizarTodo(snapshot) {
+    const docs = snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Convertir fecha si existe (timestamp)
+      let fecha = data.fecha ? data.fecha.toDate() : new Date();
+      return {
+        id: doc.id,
+        ...data,
+        fechaObj: fecha,
+        fechaStr: fecha.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })
+      };
+    });
+    deudasActuales = docs;
 
-            // Botón Hoy externo
-            todayBtn.addEventListener('click', () => {
-                calendar.today();
-            });
+    // 1. Renderizar tabla
+    if (docs.length === 0) {
+      tablaBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No hay deudas registradas</td></tr>`;
+      contadorTabla.innerText = '0 registros';
+    } else {
+      let html = '';
+      docs.forEach(d => {
+        const pagadaClass = d.pagada ? 'pagada' : '';
+        const montoFormato = '$' + (d.monto || 0).toFixed(2);
+        const idCorto = d.id.substring(0, 5) + '…';
+        // botones: siempre editar y eliminar; pagar solo si no está pagada
+        const botonPagar = d.pagada ? 
+          '<span class="badge badge-pagada">Pagada</span>' : 
+          `<button class="btn btn-sm btn-outline-success btn-pagar" data-id="${d.id}">Pagar</button>`;
 
-            // Guardar (crear o actualizar)
-            classForm.addEventListener('submit', (e) => {
-                e.preventDefault();
+        html += `<tr class="${pagadaClass}" data-id="${d.id}">
+          <td>${escapeHTML(d.emisor || '')}</td>
+          <td>${escapeHTML(d.receptor || '')}</td>
+          <td>${escapeHTML(d.cedula || '')}</td>
+          <td>${montoFormato}</td>
+          <td>${escapeHTML(d.descripcion || '')}</td>
+          <td>${d.fechaStr}</td>
+          <td><small class="text-muted" title="${d.id}">${idCorto}</small></td>
+          <td>
+            <button class="btn btn-sm btn-warning btn-editar" data-id="${d.id}">Editar</button>
+            <button class="btn btn-sm btn-danger btn-eliminar" data-id="${d.id}">Eliminar</button>
+            ${botonPagar}
+          </td>
+        </tr>`;
+      });
+      tablaBody.innerHTML = html;
+      contadorTabla.innerText = docs.length + ' registros';
+    }
 
-                const id = eventIdInput.value;
-                const title = titleInput.value;
-                const professor = professorSelect.value;
-                const day = parseInt(daySelect.value);
-                const color = colorSelect.value;
-                const startTime = startTimeInput.value;
-                const endTime = endTimeInput.value;
+    // 2. Calcular resumen (solo montos, ignorar pagadas? No, incluye todas según especificación)
+    const montos = docs.map(d => d.monto || 0);
+    const total = docs.length;
+    const suma = montos.reduce((a,b) => a + b, 0);
+    const promedio = total ? suma / total : 0;
+    const maximo = total ? Math.max(...montos) : 0;
+    const minimo = total ? Math.min(...montos) : 0;
 
-                if (startTime >= endTime) {
-                    alert('La hora de fin debe ser posterior a la de inicio');
-                    return;
-                }
+    totalSpan.innerText = total;
+    promedioSpan.innerText = '$' + promedio.toFixed(2);
+    maximoSpan.innerText = '$' + maximo.toFixed(2);
+    minimoSpan.innerText = '$' + minimo.toFixed(2);
+  }
 
-                // Generar ID si es nuevo
-                const eventId = id || Date.now().toString();
+  // pequeño helper para evitar XSS básico
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"]/g, function(m) {
+      if (m === '&') return '&amp;';
+      if (m === '<') return '&lt;';
+      if (m === '>') return '&gt;';
+      if (m === '"') return '&quot;';
+      return m;
+    });
+  }
 
-                // Crear objeto de evento para FullCalendar
-                const date = getDateForDay(day);
-                const [startH, startM] = startTime.split(':');
-                const [endH, endM] = endTime.split(':');
-                const start = new Date(date);
-                start.setHours(parseInt(startH), parseInt(startM), 0);
-                const end = new Date(date);
-                end.setHours(parseInt(endH), parseInt(endM), 0);
+  // --- LISTENER EN TIEMPO REAL ---
+  deudasCol.orderBy('fecha', 'desc').onSnapshot(actualizarTodo, error => {
+    console.error('Error en snapshot:', error);
+    tablaBody.innerHTML = `<tr><td colspan="8" class="text-danger">Error de conexión con Firebase</td></tr>`;
+  });
 
-                const fullTitle = `${title} - ${professor}`;
-                const bgColor = color === 'blue' ? '#3b82f6' : color === 'green' ? '#22c55e' : color === 'orange' ? '#f97316' : '#a855f7';
+  // --- FORMULARIO NUEVA DEUDA ---
+  document.getElementById('formNuevaDeuda').addEventListener('submit', e => {
+    e.preventDefault();
+    const emisor = document.getElementById('emisor').value.trim();
+    const receptor = document.getElementById('receptor').value.trim();
+    const cedula = document.getElementById('cedula').value.trim();
+    const monto = parseFloat(document.getElementById('monto').value);
+    const descripcion = document.getElementById('descripcion').value.trim();
 
-                const newEvent = {
-                    id: eventId,
-                    title: fullTitle,
-                    start: start,
-                    end: end,
-                    backgroundColor: bgColor,
-                    borderColor: 'white',
-                    textColor: 'white',
-                    extendedProps: {
-                        professor: professor,
-                        day: day,
-                        startTime: startTime,
-                        endTime: endTime,
-                        color: color
-                    }
-                };
+    if (!emisor || !receptor || isNaN(monto) || !descripcion) return;
 
-                if (id) {
-                    // Actualizar: eliminar el anterior y agregar el nuevo
-                    const oldEvent = calendar.getEventById(id);
-                    if (oldEvent) oldEvent.remove();
-                    calendar.addEvent(newEvent);
-                    
-                    // Actualizar también en el array events (para mantener consistencia)
-                    events = events.filter(ev => ev.id !== id);
-                    events.push(newEvent);
-                } else {
-                    // Crear nuevo
-                    calendar.addEvent(newEvent);
-                    events.push(newEvent);
-                }
+    deudasCol.add({
+      emisor,
+      receptor,
+      cedula: cedula || '',
+      monto,
+      descripcion,
+      fecha: serverTimestamp(),
+      pagada: false
+    })
+    .then(() => {
+      // limpiar formulario
+      document.getElementById('formNuevaDeuda').reset();
+    })
+    .catch(err => alert('Error al guardar: ' + err.message));
+  });
 
-                closeModal();
-            });
+  // --- DELEGACIÓN DE EVENTOS PARA BOTONES DE TABLA (editar, eliminar, pagar) ---
+  document.addEventListener('click', function(e) {
+    const target = e.target;
+    // Editar
+    if (target.classList.contains('btn-editar')) {
+      const id = target.getAttribute('data-id');
+      const deuda = deudasActuales.find(d => d.id === id);
+      if (!deuda) return;
 
-            // Eliminar evento
-            deleteBtn.addEventListener('click', () => {
-                const id = eventIdInput.value;
-                if (id && confirm('¿Eliminar esta clase?')) {
-                    const event = calendar.getEventById(id);
-                    if (event) event.remove();
-                    events = events.filter(ev => ev.id !== id);
-                    closeModal();
-                }
-            });
+      // llenar modal editar
+      document.getElementById('editDocId').value = deuda.id;
+      document.getElementById('editEmisor').value = deuda.emisor || '';
+      document.getElementById('editReceptor').value = deuda.receptor || '';
+      document.getElementById('editCedula').value = deuda.cedula || '';
+      document.getElementById('editMonto').value = deuda.monto || 0;
+      document.getElementById('editDescripcion').value = deuda.descripcion || '';
+      document.getElementById('editPassword').value = ''; // limpiar
+      document.getElementById('editError').innerText = '';
 
-            // Exponer objeto para depuración
-            window.calendar = calendar;
-        })();
-    </script>
+      // mostrar modal
+      new bootstrap.Modal(document.getElementById('modalEditar')).show();
+    }
+    // Eliminar
+    else if (target.classList.contains('btn-eliminar')) {
+      const id = target.getAttribute('data-id');
+      document.getElementById('deleteDocId').value = id;
+      document.getElementById('deletePassword').value = '';
+      document.getElementById('deleteError').innerText = '';
+      new bootstrap.Modal(document.getElementById('modalEliminar')).show();
+    }
+    // Pagar
+    else if (target.classList.contains('btn-pagar')) {
+      const id = target.getAttribute('data-id');
+      document.getElementById('payDocId').value = id;
+      document.getElementById('payPassword').value = '';
+      document.getElementById('payError').innerText = '';
+      new bootstrap.Modal(document.getElementById('modalPagar')).show();
+    }
+  });
+
+  // --- CONFIRMAR EDITAR ---
+  document.getElementById('confirmarEditar').addEventListener('click', function() {
+    const clave = document.getElementById('editPassword').value;
+    if (clave !== 'Velocidad*20C') {
+      document.getElementById('editError').innerText = '❌ Clave incorrecta. Contacta a Luis Azuaje.';
+      return;
+    }
+    const id = document.getElementById('editDocId').value;
+    const emisor = document.getElementById('editEmisor').value.trim();
+    const receptor = document.getElementById('editReceptor').value.trim();
+    const cedula = document.getElementById('editCedula').value.trim();
+    const monto = parseFloat(document.getElementById('editMonto').value);
+    const descripcion = document.getElementById('editDescripcion').value.trim();
+
+    if (!emisor || !receptor || isNaN(monto) || !descripcion) {
+      alert('Todos los campos obligatorios deben estar llenos.');
+      return;
+    }
+
+    deudasCol.doc(id).update({
+      emisor, receptor, cedula, monto, descripcion
+    })
+    .then(() => {
+      bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
+    })
+    .catch(err => alert('Error al actualizar: ' + err.message));
+  });
+
+  // --- CONFIRMAR ELIMINAR ---
+  document.getElementById('confirmarEliminar').addEventListener('click', function() {
+    const clave = document.getElementById('deletePassword').value;
+    if (clave !== 'Velocidad*20C') {
+      document.getElementById('deleteError').innerText = '❌ Clave incorrecta. Operación denegada.';
+      return;
+    }
+    const id = document.getElementById('deleteDocId').value;
+    deudasCol.doc(id).delete()
+      .then(() => {
+        bootstrap.Modal.getInstance(document.getElementById('modalEliminar')).hide();
+      })
+      .catch(err => alert('Error al eliminar: ' + err.message));
+  });
+
+  // --- CONFIRMAR PAGAR ---
+  document.getElementById('confirmarPagar').addEventListener('click', function() {
+    const clave = document.getElementById('payPassword').value;
+    if (clave !== 'Velocidad*20C') {
+      document.getElementById('payError').innerText = '❌ Clave incorrecta. No seas tramposo.';
+      return;
+    }
+    const id = document.getElementById('payDocId').value;
+    deudasCol.doc(id).update({ pagada: true })
+      .then(() => {
+        bootstrap.Modal.getInstance(document.getElementById('modalPagar')).hide();
+      })
+      .catch(err => alert('Error al marcar pagada: ' + err.message));
+  });
+
+  // Cerrar modales y limpiar errores al esconderlos (opcional)
+  ['modalEditar', 'modalEliminar', 'modalPagar'].forEach(id => {
+    document.getElementById(id).addEventListener('hidden.bs.modal', function() {
+      // limpia errores al cerrar
+      const errorDiv = this.querySelector('.password-small');
+      if (errorDiv) errorDiv.innerText = '';
+    });
+  });
+
+})();
+</script>
+
+<!-- pequeño extra para que el enlace TSJ se vea bien -->
 </body>
 </html>
